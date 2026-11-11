@@ -531,6 +531,21 @@ async function delMyTeam(){
  pend=null;try{await db.collection("teams").doc(id).delete();alert("Team verwijderd")}catch(e){alert("Verwijderen mislukt")}
 }
 
+// ---- gegevens importeren (bijv. uit de Claude-versie)
+const IMPCOLS=["players","teams","matches","comps","emails"];let IMP=null;
+function importHtml(){
+ let h=`<div class="form"><label for="impf" style="margin-top:12px">Gegevensbestand (.json)</label><input id="impf" type="file" accept=".json,application/json" onchange="impRead(this)"><p class="inf">Kies het bestand <b>zonderbord-gegevens.json</b>. Spelers, teams, uitslagen en competities worden toegevoegd. Bestaat iets al met dezelfde code, dan wordt het overschreven.</p>`;
+ if(IMP)h+=`<div class="card pad" style="margin-top:10px;box-shadow:none;background:var(--bg)"><b>Gevonden in het bestand</b><div class="inf">${IMPCOLS.map(c=>`${({players:"Spelers",teams:"Teams",matches:"Losse uitslagen",comps:"Competities",emails:"E-mailkoppelingen"})[c]}: <b>${(IMP[c]||[]).length}</b>`).join("<br>")}</div></div><button class="go" id="impgo" onclick="impRun()">Importeren</button>`;
+ return h+`</div>`}
+function impRead(inp){const f=inp.files&&inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result),C=j&&j.collections;if(!C)throw 0;IMP={};IMPCOLS.forEach(c=>{IMP[c]=(Array.isArray(C[c])?C[c]:[]).filter(x=>x&&typeof x.id==="string"&&x.id&&!x.id.includes("/")&&x.data&&typeof x.data==="object")});render()}catch(e){IMP=null;alert("Dit is geen geldig Zonderbord-bestand");render()}};r.readAsText(f)}
+async function impRun(){
+ if(!IMP||!admin||!db){alert("Log eerst in met de beheercode");return}
+ const all=IMPCOLS.flatMap(c=>(IMP[c]||[]).map(x=>[c,x]));let done=0;const b=$("#impgo");if(b){b.disabled=true;b.textContent="Bezig…"}
+ try{for(let i=0;i<all.length;i+=400){const bt=db.batch();all.slice(i,i+400).forEach(([c,x])=>bt.set(db.collection(c).doc(x.id),x.data));await bt.commit();done+=Math.min(400,all.length-i)}
+  IMP=null;alert(done+" dingen geïmporteerd");render()}
+ catch(e){alert("Importeren mislukt"+(e&&e.code==="permission-denied"?": geen rechten (log in met de beheercode)":""));if(b){b.disabled=false;b.textContent="Importeren"}}
+}
+
 // ---- navigatie
 function scrollTop(){window.scrollTo(0,0)}
 function go(v){NAV=[];if(v!=="me"){mdraft=null;tdraft=null}view=v;draft=null;pdraft=null;editM=null;editC=null;newTid="";if(v!=="comps"){open=null;openT=null}if(v!=="team")teamName=null;closeDrawer();render();scrollTop()}
@@ -714,7 +729,7 @@ async function tryCode(){
  const c=$("#code").value;if(!c)return;
  if(!db){alert("Nog niet verbonden met de database");return}
  try{await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,c);alert("Beheer staat aan");go("home")}
- catch(e){alert(e&&e.code==="auth/too-many-requests"?"Te vaak geprobeerd, wacht even":"Verkeerde code")}
+ catch(e){const c=e&&e.code||"";alert(c==="auth/too-many-requests"?"Te vaak geprobeerd, wacht even":c==="auth/operation-not-allowed"?"Inloggen met e-mail staat uit in Firebase (Authentication → Sign-in method → Email/Password)":c==="auth/user-not-found"?"Het account beheer@zonderbord.nl bestaat nog niet in Firebase":c==="auth/network-request-failed"?"Geen internetverbinding met Firebase":["auth/invalid-credential","auth/wrong-password","auth/invalid-login-credentials"].includes(c)?"Verkeerde code, of het account beheer@zonderbord.nl bestaat nog niet in Firebase":"Inloggen mislukt ("+c+")")}
 }
 async function googleLogin(){
  const fb=window.firebase;if(!fb||!fb.apps.length){alert("Nog niet verbonden met de database");return}
@@ -781,13 +796,14 @@ function addHtml(){
  const dl=clDl()+`<datalist id="pl">${names().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>`;
  const c=editC&&comps.find(x=>x.id===editC);if(c)return pageTitle("Bewerken")+dl+compForm(c);
  const m=editM&&matches.find(x=>x.id===editM);if(m)return pageTitle("Bewerken")+dl+resForm(m);
- const tabs=isP()?[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"]]:[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"]];
+ const tabs=isP()?[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"],...(window.firebase?[["import","Import"]]:[])]:[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"]];
  if(addTab==="tourn")addTab="comp";
  
  let h=pageTitle("Beheer")+`<div class="seg" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${addTab===k}" class="${addTab===k?"sel":""}" onclick="addTab='${k}';draft=null;pdraft=null;render()">${l}</button>`).join("")}</div>`+dl;
  if(addTab==="res")h+=resForm(null);
  else if(addTab==="comp")h+=compForm(null);
  else if(addTab==="team")h+=teamsManage();
+ else if(addTab==="import")h+=importHtml();
  else h+=playersManage();
  return h;
 }
