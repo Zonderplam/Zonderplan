@@ -480,13 +480,15 @@ function personDetail(n){
 
 // ---- Mijn profiel: iedereen maakt 1 eigen speler en 1 eigen team (en is daar leider van)
 function myPid(){if(!ME)return "";if(ME.pid&&PM[ME.pid])return ME.pid;const o=RAWP.find(p=>p.owner===ME.uid);if(o)return o.id;if(ME.eh){const e=RAWP.find(p=>p.eh===ME.eh);if(e)return e.id}return ME.pid||ME.uid}
+// je team: het team dat jij leidt (ook als de beheerder het voor je heeft gemaakt). Max 1.
+function myTeam(){if(!ME)return null;const pid=myPid();return RAWT.find(t=>t.id===myTeamId())||RAWT.find(t=>t.name&&t.founder&&t.founder===pid)||null}
 function myTeamId(){return ME?"team_"+ME.uid:""}
 function nameUsed(n){const k=pkey(n);return RAWM.some(m=>pkey(m.a)===k||pkey(m.b)===k)||RAWC.some(c=>(c.teams||[]).some(x=>pkey(x)===k))}
 function meHtml(){
  let h=pageTitle("Mijn profiel");
  if(!live)return h+`<div class="card empty">Nog niet verbonden met de database.</div>`;
  if(!ME)return h+`<div class="card pad"><b>Doe zelf mee</b><div class="inf">Iedereen kan met zijn eigen account één speler maken, met naam en foto. Daarna kun je één team oprichten. Daarvan ben je automatisch de leider.</div>${window.firebase?`<button class="go" onclick="googleLogin()">Inloggen met Google</button>`:`<div class="inf"><b>Je kunt deze pagina nu alleen bekijken.</b> Vraag de eigenaar om je de rol Contributor te geven (via Delen). Daarna kun je hier met je eigen account één speler en één team maken.</div>`}</div>`+loginCard();
- const P=PM[myPid()],T=RAWT.find(t=>t.id===myTeamId());
+ const P=PM[myPid()],T=myTeam();
  h+=`<div class="sec">Mijn speler</div>`;
  if(mdraft)h+=myPlayerForm(P);
  else if(P){const TT=teamsOf(P.id);h+=`<div class="card pad"><div class="rhead">${pav(P,"")}<div class="rn" style="flex:1"><b>${esc(P.name)}</b></div></div><div class="inf">${TT.length?"In "+TT.map(t=>esc(t.name)+(t.founder===P.id?" 👑":"")).join(", "):"Zit nog niet in een team"}</div><div class="acts"><button class="ic" onclick="mdraft={name:PM[myPid()].name,photo:PM[myPid()].photo||''};render()">✎ Bewerk</button><button class="ic" onclick="openPerson(${jsq(P.name)})">Bekijk mijn pagina ›</button></div></div>`}
@@ -510,7 +512,7 @@ async function saveMe(){
  if(RAWT.some(t=>pkey(t.name)===pkey(name))){alert("Die naam is al een team. Kies een andere naam.");return}
  if(await myPut("players",myPid(),{...(P?strip(P):{created:Date.now()}),name,photo:d.photo||"",owner:ME.uid})){if(!P&&ME.email&&!ME.pid){try{await db.collection("emails").doc(ME.email).set({pid:ME.uid})}catch(e){}}mdraft=null;alert("Opgeslagen");render()}
 }
-function editMyTeam(){const T=RAWT.find(t=>t.id===myTeamId());if(!T)return;tdraft={name:T.name,logo:T.logo||"",founded:T.founded||"",ids:teamPlayers(T).map(p=>p.id).filter(x=>x&&x!==myPid())};render()}
+function editMyTeam(){const T=myTeam();if(!T)return;tdraft={name:T.name,logo:T.logo||"",founded:T.founded||"",ids:teamPlayers(T).map(p=>p.id).filter(x=>x&&x!==myPid())};render()}
 function myTeamForm(T){const d=tdraft,others=RAWP.filter(x=>x.name&&x.id!==myPid()).sort((a,b)=>a.name.localeCompare(b.name));
  return `<div class="form"><div class="ted"><button class="logoPick" onclick="pick({k:'mlogo'})" aria-label="Logo kiezen">${d.logo?`<img src="${d.logo}" alt="">`:`<span class="lp-empty">${IC.camera}<span>Logo</span></span>`}</button>
  <div style="flex:1;min-width:0"><label for="mtn" style="margin-top:0">Teamnaam</label><input id="mtn" value="${esc(d.name)}" oninput="tdraft.name=this.value">${d.logo?`<button class="ic" style="margin:10px 0 0" onclick="tdraft.logo='';render()">Logo weghalen</button>`:`<p class="inf">Tik op het vak voor een logo</p>`}</div></div>
@@ -519,7 +521,7 @@ function myTeamForm(T){const d=tdraft,others=RAWP.filter(x=>x.name&&x.id!==myPid
  <p class="inf">Jij zit er altijd in als leider.</p>
  <button class="go" onclick="saveMyTeam()">Opslaan</button><button class="go alt" onclick="tdraft=null;render()">Annuleren</button></div>`}
 async function saveMyTeam(){
- const d=tdraft,name=(d.name||"").trim(),id=myTeamId(),T=RAWT.find(t=>t.id===id);
+ const d=tdraft,name=(d.name||"").trim(),T=myTeam(),id=T?T.id:myTeamId();
  if(!name){alert("Geef je team een naam");return}
  if(RAWT.some(t=>t.id!==id&&pkey(t.name)===pkey(name))){alert("Er is al een team met die naam");return}
  if(RAWP.some(x=>pkey(x.name)===pkey(name))){alert("Die naam is al een speler. Kies een andere naam.");return}
@@ -527,7 +529,7 @@ async function saveMyTeam(){
  if(await myPut("teams",id,{...(T?strip(T):{created:Date.now()}),name,logo:d.logo||"",founded:d.founded||"",players:ids,members:ids.map(k=>PM[k].name).join(" & "),founder:myPid(),owner:ME.uid})){tdraft=null;alert("Opgeslagen");render()}
 }
 async function delMyTeam(){
- const id=myTeamId();if(pend!=="mt"){pend="mt";alert("Tik nog een keer om je team te verwijderen");setTimeout(()=>{pend=null},4000);return}
+ const T=myTeam();if(!T)return;const id=T.id;if(pend!=="mt"){pend="mt";alert("Tik nog een keer om je team te verwijderen");setTimeout(()=>{pend=null},4000);return}
  pend=null;try{await db.collection("teams").doc(id).delete();alert("Team verwijderd")}catch(e){alert("Verwijderen mislukt")}
 }
 
