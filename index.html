@@ -218,6 +218,8 @@ img.crest.lg{object-fit:contain;border-radius:0;box-shadow:none;background:none}
 .chks label{margin:0;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--ink);font-size:14px;cursor:pointer}
 .chks input{width:auto}
 .li .ic{flex:none}
+.ib{position:relative}.ib .dot{position:absolute;top:8px;right:8px;width:11px;height:11px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 2px var(--top)}
+.inv{border-left:5px solid var(--gold)}
 .rhead{display:flex;align-items:center;gap:10px}
 .rn{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
 .rn b{font:700 20px/1.1 var(--fd);margin-right:2px;overflow-wrap:anywhere}
@@ -342,7 +344,7 @@ let RAWM=[],RAWT=[],RAWC=[],RAWTO=[],matches=[],teams=[],comps=[],tourns=[],RTC=
 let addTab="res",draft=null,pickT=null,TM={};
 let RAWP=[],PM={},PN={},pdraft=null,curP=null,prevTeam=null;
 let NAV=[],compTab="stand",curName=null;
-let ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
+let RAWI=[],unsubInv=null,ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let tt;window.alert=m=>{const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(tt);tt=setTimeout(()=>{t.style.display="none"},3200)};
@@ -488,7 +490,8 @@ function meHtml(){
  let h=pageTitle("Mijn profiel");
  if(!live)return h+`<div class="card empty">Nog niet verbonden met de database.</div>`;
  if(!ME)return h+`<div class="card pad"><b>Doe zelf mee</b><div class="inf">Iedereen kan met zijn eigen account één speler maken, met naam en foto. Daarna kun je één team oprichten. Daarvan ben je automatisch de leider.</div>${window.firebase?`<button class="go" onclick="googleLogin()">Inloggen met Google</button>`:`<div class="inf"><b>Je kunt deze pagina nu alleen bekijken.</b> Vraag de eigenaar om je de rol Contributor te geven (via Delen). Daarna kun je hier met je eigen account één speler en één team maken.</div>`}</div>`+loginCard();
- const P=PM[myPid()],T=myTeam();
+ const P=PM[myPid()],T=myTeam(),INV=myInvites();
+ if(P&&INV.length)h+=`<div class="sec">Uitnodigingen</div>`+INV.map(iv=>{const tm=RAWT.find(t=>t.id===iv.team),from=PM[iv.from],cur=teamsOf(P.id).filter(t=>t.id!==iv.team);return tm?`<div class="card pad inv"><div class="rhead">${tcrest(tm.name,44)}<div class="rn" style="flex:1"><b>${esc(tm.name)}</b></div></div><div class="inf">${from?esc(from.name)+" nodigt je uit voor dit team.":"Je bent uitgenodigd voor dit team."}${cur.length?` Je verlaat dan <b>${cur.map(t=>esc(t.name)).join(", ")}</b>.`:""}</div><div class="acts"><button class="go s" onclick="acceptInvite('${iv.id}')">✓ Accepteren</button><button class="ic" onclick="declineInvite('${iv.id}')">Weigeren</button></div></div>`:""}).join("");
  h+=`<div class="sec">Mijn speler</div>`;
  if(mdraft)h+=myPlayerForm(P);
  else if(P){const TT=teamsOf(P.id);h+=`<div class="card pad"><div class="rhead">${pav(P,"")}<div class="rn" style="flex:1"><b>${esc(P.name)}</b></div></div><div class="inf">${TT.length?"In "+TT.map(t=>esc(t.name)+(t.founder===P.id?" 👑":"")).join(", "):"Zit nog niet in een team"}</div><div class="acts"><button class="ic" onclick="mdraft={name:PM[myPid()].name,photo:PM[myPid()].photo||''};render()">✎ Bewerk</button><button class="ic" onclick="openPerson(${jsq(P.name)})">Bekijk mijn pagina ›</button></div></div>`}
@@ -496,7 +499,8 @@ function meHtml(){
  h+=`<div class="sec">Mijn team</div>`;
  if(!P)h+=`<div class="card empty">Maak eerst je speler aan.</div>`;
  else if(tdraft)h+=myTeamForm(T);
- else if(T)h+=`<div class="card pad"><div class="rhead">${tcrest(T.name,44)}<div class="rn" style="flex:1"><b>${esc(T.name)}</b></div></div><div class="inf">👑 Jij bent de leider · ${teamPlayers(T).length} speler${teamPlayers(T).length===1?"":"s"}${T.founded?" · opgericht op "+esc(fmtDate(T.founded)):""}</div><div class="acts"><button class="ic" onclick="editMyTeam()">✎ Bewerk team</button><button class="ic" onclick="openClub(${jsq(T.name)})">Bekijk team ›</button><button class="ic" onclick="delMyTeam()">🗑 Verwijder</button></div></div>`;
+ else if(!T&&P&&memberTeams().length)h+=memberTeams().map(t=>`<div class="card pad"><div class="rhead">${tcrest(t.name,44)}<div class="rn" style="flex:1"><b>${esc(t.name)}</b></div></div><div class="inf">Je bent lid${t.founder&&PM[t.founder]?" · 👑 leider: "+esc(PM[t.founder].name):""} · ${teamPlayers(t).length} spelers</div><div class="acts"><button class="ic" onclick="openClub(${jsq(t.name)})">Bekijk team ›</button><button class="ic" onclick="leaveTeam('${t.id}')">Verlaat team</button></div></div>`).join("")+`<p class="note">Wil je zelf een team oprichten? Verlaat dan eerst je huidige team.</p>`;
+ else if(T)h+=`<div class="card pad"><div class="rhead">${tcrest(T.name,44)}<div class="rn" style="flex:1"><b>${esc(T.name)}</b></div></div><div class="inf">👑 Jij bent de leider · ${teamPlayers(T).length} speler${teamPlayers(T).length===1?"":"s"}${T.founded?" · opgericht op "+esc(fmtDate(T.founded)):""}${pendingFor(T.id).length?`<br>⏳ Wacht op: ${pendingFor(T.id).map(iv=>PM[iv.pid]?esc(PM[iv.pid].name):"?").join(", ")}`:""}</div><div class="acts"><button class="ic" onclick="editMyTeam()">✎ Bewerk team</button><button class="ic" onclick="openClub(${jsq(T.name)})">Bekijk team ›</button><button class="ic" onclick="delMyTeam()">🗑 Verwijder</button></div></div>`;
  else h+=`<div class="card pad"><div class="inf" style="margin-top:0">Richt je eigen team op. Je bent automatisch de leider en je kunt één team maken.</div><button class="go" onclick="tdraft={name:'',logo:'',founded:new Date().toISOString().slice(0,10),ids:[]};render()">+ Richt een team op</button></div>`;
  h+=`<div class="acts" style="margin-top:18px">${window.firebase?`<button class="ic" onclick="logout()">Uitloggen</button>`:""}</div>`+(admin?"":loginCard());
  return h}
@@ -512,25 +516,58 @@ async function saveMe(){
  if(RAWT.some(t=>pkey(t.name)===pkey(name))){alert("Die naam is al een team. Kies een andere naam.");return}
  if(await myPut("players",myPid(),{...(P?strip(P):{created:Date.now()}),name,photo:d.photo||"",owner:ME.uid})){if(!P&&ME.email&&!ME.pid){try{await db.collection("emails").doc(ME.email).set({pid:ME.uid})}catch(e){}}mdraft=null;alert("Opgeslagen");render()}
 }
-function editMyTeam(){const T=myTeam();if(!T)return;tdraft={name:T.name,logo:T.logo||"",founded:T.founded||"",ids:teamPlayers(T).map(p=>p.id).filter(x=>x&&x!==myPid())};render()}
-function myTeamForm(T){const d=tdraft,others=RAWP.filter(x=>x.name&&x.id!==myPid()).sort((a,b)=>a.name.localeCompare(b.name));
+function editMyTeam(){const T=myTeam();if(!T)return;tdraft={name:T.name,logo:T.logo||"",founded:T.founded||"",ids:teamPlayers(T).map(p=>p.id).filter(x=>x&&x!==myPid()),inv:pendingFor(T.id).map(iv=>iv.pid)};render()}
+function myTeamForm(T){const d=tdraft;d.inv=d.inv||[];const others=RAWP.filter(x=>x.name&&x.id!==myPid()).sort((a,b)=>a.name.localeCompare(b.name));
+ const tick=(x)=>d.ids.includes(x.id)||d.inv.includes(x.id);
  return `<div class="form"><div class="ted"><button class="logoPick" onclick="pick({k:'mlogo'})" aria-label="Logo kiezen">${d.logo?`<img src="${d.logo}" alt="">`:`<span class="lp-empty">${IC.camera}<span>Logo</span></span>`}</button>
  <div style="flex:1;min-width:0"><label for="mtn" style="margin-top:0">Teamnaam</label><input id="mtn" value="${esc(d.name)}" oninput="tdraft.name=this.value">${d.logo?`<button class="ic" style="margin:10px 0 0" onclick="tdraft.logo='';render()">Logo weghalen</button>`:`<p class="inf">Tik op het vak voor een logo</p>`}</div></div>
  <div class="row"><div><label>👑 Leider</label><input value="${esc(PM[myPid()].name)} (jij)" disabled></div><div><label for="mtd">Opgericht op</label><input id="mtd" type="date" value="${esc(d.founded)}" onchange="tdraft.founded=this.value"></div></div>
- <label>Spelers in je team</label>${others.length?`<div class="chks">${others.map(x=>`<label><input type="checkbox" ${d.ids.includes(x.id)?"checked":""} onchange="this.checked?tdraft.ids.push('${x.id}'):tdraft.ids=tdraft.ids.filter(i=>i!=='${x.id}')">${esc(x.name)}</label>`).join("")}</div>`:`<p class="inf">Er zijn nog geen andere spelers.</p>`}
- <p class="inf">Jij zit er altijd in als leider.</p>
+ <label>Spelers in je team</label>${others.length?`<div class="chks">${others.map(x=>`<label><input type="checkbox" ${tick(x)?"checked":""} onchange="tickMember('${x.id}',this.checked)">${esc(x.name)}${d.inv.includes(x.id)&&!d.ids.includes(x.id)?" ⏳":""}</label>`).join("")}</div>`:`<p class="inf">Er zijn nog geen andere spelers.</p>`}
+ <p class="inf">Vink je iemand aan, dan krijgt die een <b>uitnodiging</b>. Pas als hij die accepteert, zit hij in je team (en verlaat hij zijn oude team). ⏳ = wacht op antwoord.</p>
  <button class="go" onclick="saveMyTeam()">Opslaan</button><button class="go alt" onclick="tdraft=null;render()">Annuleren</button></div>`}
+function tickMember(id,on){const d=tdraft;if(on){if(!d.ids.includes(id)&&!d.inv.includes(id))d.inv.push(id)}else{d.ids=d.ids.filter(i=>i!==id);d.inv=d.inv.filter(i=>i!==id)}}
 async function saveMyTeam(){
- const d=tdraft,name=(d.name||"").trim(),T=myTeam(),id=T?T.id:myTeamId();
+ keepTeamName();const d=tdraft,name=(d.name||"").trim(),T=myTeam(),id=T?T.id:myTeamId(),me=myPid();
  if(!name){alert("Geef je team een naam");return}
  if(RAWT.some(t=>t.id!==id&&pkey(t.name)===pkey(name))){alert("Er is al een team met die naam");return}
  if(RAWP.some(x=>pkey(x.name)===pkey(name))){alert("Die naam is al een speler. Kies een andere naam.");return}
- const ids=[myPid(),...d.ids.filter(x=>PM[x]&&x!==myPid())];
- if(await myPut("teams",id,{...(T?strip(T):{created:Date.now()}),name,logo:d.logo||"",founded:d.founded||"",players:ids,members:ids.map(k=>PM[k].name).join(" & "),founder:myPid(),owner:ME.uid})){tdraft=null;alert("Opgeslagen");render()}
+ const cur=T?teamPlayers(T).map(p=>p.id).filter(Boolean):[me];
+ const ids=[me,...cur.filter(x=>x!==me&&d.ids.includes(x))];
+ if(!T){for(const t of memberTeams()){if(!await leaveDoc(t))return}}
+ if(!await myPut("teams",id,{...(T?strip(T):{created:Date.now()}),name,logo:d.logo||"",founded:d.founded||"",players:ids,members:ids.map(k=>PM[k]?PM[k].name:"").filter(Boolean).join(" & "),founder:me,owner:ME.uid}))return;
+ const want=d.inv.filter(x=>PM[x]&&!ids.includes(x)),had=pendingFor(id);let sent=0;
+ try{for(const x of want){if(had.some(iv=>iv.pid===x))continue;await db.collection("invites").doc(id+"__"+x).set({team:id,pid:x,from:me,created:Date.now()});sent++}
+  for(const iv of had)if(!want.includes(iv.pid))await db.collection("invites").doc(iv.id).delete()}
+ catch(e){alert("Team opgeslagen, maar een uitnodiging versturen lukte niet");tdraft=null;render();return}
+ tdraft=null;alert(sent?`Opgeslagen · ${sent} uitnodiging${sent===1?"":"en"} verstuurd`:"Opgeslagen");render()
 }
+function keepTeamName(){const e=$("#mtn");if(e&&tdraft)tdraft.name=e.value}
+
+// ---- uitnodigingen
+function myInvites(){const me=myPid();return ME&&me?RAWI.filter(iv=>iv.pid===me&&RAWT.some(t=>t.id===iv.team)):[]}
+function pendingFor(tid){return RAWI.filter(iv=>iv.team===tid)}
+function memberTeams(){const me=myPid();return me?RAWT.filter(t=>t.name&&t.founder!==me&&teamPlayers(t).some(p=>p.id===me)):[]}
+function watchInvites(on){if(unsubInv){unsubInv();unsubInv=null}RAWI=[];if(!on||!db)return;unsubInv=db.collection("invites").onSnapshot(x=>{RAWI=x.docs.map(d=>({id:d.id,...d.data()}));render()},()=>{})}
+function namesOf(ids){return ids.map(k=>PM[k]?PM[k].name:"").filter(Boolean).join(" & ")}
+async function leaveDoc(t){const me=myPid(),ids=teamPlayers(t).map(p=>p.id).filter(x=>x&&x!==me);
+ try{await db.collection("teams").doc(t.id).set({...strip(t),players:ids,members:namesOf(ids),lastLeave:me});return true}catch(e){alert("Uit "+t.name+" stappen lukte niet");return false}}
+async function acceptInvite(iid){
+ const iv=RAWI.find(x=>x.id===iid),me=myPid();if(!iv||!db)return;const T=RAWT.find(t=>t.id===iv.team);if(!T){alert("Dit team bestaat niet meer");return}
+ const lead=myTeam();if(lead&&lead.id!==T.id){alert(`Je bent leider van ${lead.name}. Verwijder eerst je eigen team om over te stappen.`);return}
+ const others=memberTeams().filter(t=>t.id!==T.id);
+ if(pend!=="a"+iid){pend="a"+iid;alert(others.length?`Tik nog een keer: je gaat naar ${T.name} en verlaat ${others.map(t=>t.name).join(", ")}`:`Tik nog een keer om bij ${T.name} te gaan`);setTimeout(()=>{pend=null},5000);return}
+ pend=null;
+ const ids=teamPlayers(T).map(p=>p.id).filter(Boolean);
+ if(!ids.includes(me)){try{const nid=[...ids,me];await db.collection("teams").doc(T.id).set({...strip(T),players:nid,members:namesOf(nid),lastJoin:me})}catch(e){alert("Accepteren lukte niet");return}}
+ for(const t of others)await leaveDoc(t);
+ try{await db.collection("invites").doc(iid).delete()}catch(e){}
+ alert("Je zit nu in "+T.name);render()
+}
+async function declineInvite(iid){try{await db.collection("invites").doc(iid).delete();alert("Uitnodiging geweigerd")}catch(e){alert("Weigeren lukte niet")}}
+async function leaveTeam(tid){const t=RAWT.find(x=>x.id===tid);if(!t)return;if(pend!=="l"+tid){pend="l"+tid;alert("Tik nog een keer om "+t.name+" te verlaten");setTimeout(()=>{pend=null},4000);return}pend=null;if(await leaveDoc(t))alert("Je hebt "+t.name+" verlaten")}
 async function delMyTeam(){
  const T=myTeam();if(!T)return;const id=T.id;if(pend!=="mt"){pend="mt";alert("Tik nog een keer om je team te verwijderen");setTimeout(()=>{pend=null},4000);return}
- pend=null;try{await db.collection("teams").doc(id).delete();alert("Team verwijderd")}catch(e){alert("Verwijderen mislukt")}
+ pend=null;try{for(const iv of pendingFor(id))await db.collection("invites").doc(iv.id).delete();await db.collection("teams").doc(id).delete();alert("Team verwijderd")}catch(e){alert("Verwijderen mislukt")}
 }
 
 // ---- gegevens importeren (bijv. uit de Claude-versie)
@@ -572,7 +609,7 @@ function chrome(){
  const mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.content=G.c;
  const rb=$("#rightBtn");
  if(admin&&canWrite){rb.innerHTML=IC.plus;rb.setAttribute("aria-label","Nieuw toevoegen");rb.onclick=()=>go("add")}
- else{rb.innerHTML=ME&&PM[myPid()]?pcrest(PM[myPid()],34):IC.user;rb.setAttribute("aria-label","Mijn profiel");rb.onclick=()=>{const m=ME&&PM[myPid()];if(m)openPerson(m.name);else go("me")}}
+ else{rb.innerHTML=(ME&&PM[myPid()]?pcrest(PM[myPid()],34):IC.user)+(myInvites().length?`<span class="dot" aria-label="Uitnodiging"></span>`:"");rb.setAttribute("aria-label","Mijn profiel");rb.onclick=()=>{const m=ME&&PM[myPid()];if(m)openPerson(m.name);else go("me")}}
  const N=names();
  const items=dockItems();
  $("#dock").innerHTML=`<button class="dk ${view==="home"?"on":""}" onclick="go('home')"><span class="homei">${IC.home}</span><span class="nm">Home</span></button>`+(items.length?`<span class="dsep"></span>`:"")+items.join("");
@@ -1089,7 +1126,7 @@ applyGame();render();
  if(!window.firebase){alert("Kon Firebase niet laden, check je internet");return}
  firebase.initializeApp(firebaseConfig);
  db=firebase.firestore();live=true;
- firebase.auth().onAuthStateChanged(u=>{admin=canWrite=!!u&&u.email===ADMIN_EMAIL;ME=null;watchEmails(admin);if(u&&!admin)linkMe(u);else render()});
+ firebase.auth().onAuthStateChanged(u=>{admin=canWrite=!!u&&u.email===ADMIN_EMAIL;ME=null;watchEmails(admin);watchInvites(!!u);if(u&&!admin)linkMe(u);else render()});
  firebase.auth().getRedirectResult().catch(()=>{});
  const sub=(c,f)=>db.collection(c).onSnapshot(s=>{f(s.docs.map(d=>({id:d.id,...d.data()})));applyGame();render()},e=>console.error(c,e));
  sub("matches",x=>RAWM=x);sub("teams",x=>RAWT=x);sub("tourns",x=>RAWTO=x);sub("comps",x=>RAWC=x);sub("players",x=>RAWP=x);
