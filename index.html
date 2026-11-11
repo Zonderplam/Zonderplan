@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#00a046">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Zonderbord</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+/* Opzet: groene kopbalk (kleur per spel), witte kaarten op lichtgrijs, teambalk onderin, menu schuift van links in */
+:root{
+ --top:#00a046;--act:var(--top);--bg:#edf1f5;--card:#fff;--ink:#0b1d44;--mu:#66748c;--line:#e2e7ee;--gold:#f5b301;
+ --win:#00a046;--loss:#d93a3a;--draw:#8a96a8;
+ --acbg:color-mix(in srgb,var(--top) 12%,var(--card));
+ --shadow:0 1px 2px rgba(11,29,68,.08),0 3px 10px rgba(11,29,68,.05);
+ --fd:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+ --fb:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+ color-scheme:light;padding-top:env(safe-area-inset-top,0px)
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1120;--card:#141c2d;--ink:#e9eef8;--mu:#8e9bb2;--line:#243049;--act:color-mix(in srgb,var(--top) 62%,#fff);--acbg:color-mix(in srgb,var(--top) 22%,var(--card));--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0b1120;--card:#141c2d;--ink:#e9eef8;--mu:#8e9bb2;--line:#243049;--act:color-mix(in srgb,var(--top) 62%,#fff);--acbg:color-mix(in srgb,var(--top) 22%,var(--card));--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
+:root[data-game="fifa"]{--top:#1f4fd6}
+:root[data-game="voetvolley"]{--top:#e2570b}
+:root[data-game="clash"]{--top:#7b2fd0}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 var(--fb)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--top);z-index:30}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--act);outline-offset:2px}
+small{display:block;font-weight:400;color:var(--mu);font-size:12px}
+
+/* kopbalk */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--top);color:#fff;height:58px;display:grid;grid-template-columns:58px 1fr 58px;align-items:center;padding-left:max(0px,env(safe-area-inset-left,0px));padding-right:max(0px,env(safe-area-inset-right,0px))}
+.bar h1{margin:0;text-align:center;font:800 25px/1 var(--fd);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:48px;height:48px;margin:auto;border:0;background:none;color:#fff;border-radius:12px;display:grid;place-items:center;cursor:pointer}
+.ib:hover{background:rgba(255,255,255,.14)}
+main{max-width:680px;margin:0 auto;padding-block:12px calc(120px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));position:relative}
+
+/* kaarten */
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 16px 0}
+.ch h2,.ch h3{margin:0;font:700 24px/1.1 var(--fd);color:var(--ink)}
+.ch h3{font-size:21px}
+.sub{color:var(--mu);font-size:15px;margin-top:3px}
+.cfoot{display:flex;justify-content:center;align-items:center;gap:8px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:15px;font:700 19px var(--fd);color:var(--ink);cursor:pointer}
+.cfoot svg{color:var(--act)}
+.cfoot:hover{background:var(--bg)}
+.pad{padding:16px}
+
+/* volgende wedstrijd */
+.slides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.slides::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:center;padding:22px 16px 18px;align-self:flex-start}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center}
+.side{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0;background:none;border:0;cursor:pointer;padding:0}
+.side b{font:700 19px/1.15 var(--fd);color:var(--ink);overflow-wrap:anywhere}
+.mid{font:800 34px/1 var(--fd);color:var(--ink);min-width:70px}
+.mid small{font:600 12px var(--fb);letter-spacing:.08em;text-transform:uppercase;margin-top:6px}
+.dots{display:flex;gap:7px;padding-top:8px}
+.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);transition:background .2s}
+.dots i.on{background:var(--top)}
+
+/* teamlogo */
+.crest{width:var(--s,56px);height:var(--s,56px);border-radius:50%;display:inline-grid;place-items:center;flex:none;color:#fff;font:800 calc(var(--s,56px)*.38)/1 var(--fd);letter-spacing:.02em;background:radial-gradient(circle at 32% 25%,hsl(var(--h) 72% 60%),hsl(var(--h) 66% 34%));box-shadow:inset 0 0 0 calc(var(--s,56px)*.05) rgba(255,255,255,.4),0 1px 3px rgba(0,0,0,.18)}
+
+/* odds */
+.ob{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:14px;display:flex}
+.ob i{display:block;height:100%;background:var(--top)}
+.ob em{display:block;height:100%;background:var(--gold)}
+.odds{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mu);margin-top:6px}
+.odds b{color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums}
+.inf{font-size:14px;color:var(--mu);margin-top:6px}
+
+/* nieuws-achtige kaart */
+.news{display:flex;gap:14px;align-items:center}
+.nicon{width:46px;height:46px;flex:none;display:grid;place-items:center;color:var(--top)}
+.round{width:46px;height:46px;flex:none;border-radius:50%;border:0;background:var(--top);color:#fff;display:grid;place-items:center;cursor:pointer}
+.nbody{margin:14px 16px 0;border-top:1px solid var(--line);padding:14px 0 16px;font-size:19px;line-height:1.35}
+.nbody b{font-weight:700}
+
+/* wedstrijdregels */
+.m{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin-bottom:8px}
+.m.c{cursor:pointer}
+.mr{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.t{display:flex;align-items:center;gap:9px;font-weight:600;min-width:0}
+.t>span{min-width:0;overflow-wrap:anywhere}
+.t.r{flex-direction:row-reverse;text-align:right}
+.t.w{font-weight:800}
+.t.l{color:var(--mu)}
+.sc{font:800 21px/1 var(--fd);background:var(--ink);color:var(--card);padding:7px 10px;border-radius:8px;min-width:66px;text-align:center;font-variant-numeric:tabular-nums}
+.sc.o{background:var(--acbg);color:var(--act)}
+.mm{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;color:var(--mu);font-size:13px;margin-top:8px}
+.chip{display:inline-block;background:var(--bg);border-radius:99px;padding:2px 9px;margin:2px 4px 2px 0;font-size:12px;font-weight:600;color:var(--mu)}
+.pill{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;color:#fff;font:800 13px var(--fd)}
+.pill.W{background:var(--win)}.pill.V{background:var(--loss)}.pill.G{background:var(--draw)}
+
+/* koppen */
+.sec{font:700 15px var(--fd);color:var(--mu);text-transform:uppercase;letter-spacing:.09em;margin:22px 4px 10px}
+.sec:first-child{margin-top:4px}
+.ptitle{font:800 32px/1.05 var(--fd);margin:6px 4px 14px;color:var(--ink);text-wrap:balance}
+.back{display:inline-flex;align-items:center;gap:4px;background:none;border:0;color:var(--act);font:700 16px var(--fb);cursor:pointer;padding:4px 4px 6px}
+
+/* tabellen */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:10px 6px;text-align:center;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+th{color:var(--mu);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+td.n,th.n{text-align:left}
+td.n{font-weight:600}
+td.n .t{gap:8px}
+td.n .t>span{white-space:nowrap}
+th,td{padding-left:5px;padding-right:5px}
+tr.c{cursor:pointer}
+tr.c:hover td{background:var(--bg)}
+td.p{font-weight:800;color:var(--act)}
+.rank{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--bg);font-size:13px;font-weight:700}
+.rkD{background:#38bdf8;color:#04283d}.rkG{background:#f5b301;color:#3a2a00}.rkS{background:#c0c7ce;color:#222}.rkB{background:#cd7f32;color:#fff}
+.bd{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--bc,var(--line));color:var(--bc,var(--mu));border-radius:99px;padding:2px 9px;font-size:12px;font-weight:700;background:var(--card);white-space:nowrap}
+
+/* teams */
+.tg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tc{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;border:0;cursor:pointer;color:var(--ink)}
+.tc b{font:700 19px/1.1 var(--fd);overflow-wrap:anywhere}
+.tc>span:not(.crest){color:var(--mu);font-size:13px}
+.list{display:flex;flex-direction:column;gap:8px}
+.li{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:14px;display:flex;align-items:center;gap:12px;border:0;width:100%;text-align:left;cursor:pointer;color:var(--ink)}
+.li>div{flex:1;min-width:0}
+.li b{display:block;font:700 19px/1.15 var(--fd)}
+.li>div>span{color:var(--mu);font-size:14px}
+.li svg{color:var(--mu);flex:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:12px 6px;text-align:center}
+.stat b{display:block;font:800 28px/1 var(--fd);color:var(--act);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--mu)}
+.thero{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:22px 16px}
+.thero h2{margin:0;font:800 32px/1 var(--fd)}
+.rg{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px}
+.rc{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.win{background:linear-gradient(135deg,var(--top),color-mix(in srgb,var(--top) 60%,#000));color:#fff;border-radius:14px;padding:16px;text-align:center;font:800 22px var(--fd);margin-bottom:12px}
+
+/* formulieren */
+.form{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:6px 16px 16px;margin-bottom:12px}
+label{display:block;font-size:14px;color:var(--mu);margin:12px 0 5px;font-weight:600}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+.go{margin-top:16px;width:100%;padding:13px;border:0;border-radius:12px;background:var(--top);color:#fff;font:700 18px var(--fd);letter-spacing:.03em;cursor:pointer}
+.go.s{margin:0;padding:7px 12px;width:auto;font-size:15px}
+.go.alt{background:var(--bg);color:var(--ink)}
+.pick{display:flex;flex-wrap:wrap;gap:6px}
+.pick label{margin:0;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--ink);font-size:14px;cursor:pointer}
+.pick input{width:auto}
+.sin{width:54px!important;padding:7px!important;text-align:center}
+.ic{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--ink);cursor:pointer;font-size:13px;margin-left:6px}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.acts .ic{margin:0}
+.empty{color:var(--mu);text-align:center;padding:28px 16px}
+.note{color:var(--mu);font-size:13px;text-align:center;margin:10px 0}
+
+/* teambalk onderin */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding:8px max(8px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.dock::-webkit-scrollbar{display:none}
+.dk{flex:0 0 78px;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;color:var(--mu);font-size:14px;cursor:pointer;padding:4px 2px;border-radius:10px}
+.dk .nm,.dk small{max-width:74px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk small{font-size:11px;margin-top:-5px;color:var(--mu)}
+.dk{gap:5px}
+.dk.on{color:var(--ink);font-weight:700}
+.dk.on .crest,.dk.on .homei{box-shadow:0 0 0 3px var(--card),0 0 0 5px var(--top)}
+.dsep{flex:none;width:1px;background:var(--line);margin:4px 6px}
+.homei{width:48px;height:48px;border-radius:50%;background:var(--acbg);color:var(--act);display:grid;place-items:center}
+
+/* zijmenu */
+.scrim{position:fixed;inset:0;background:rgba(5,12,30,.5);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(310px,86vw);background:var(--card);z-index:41;transform:translateX(-104%);transition:transform .25s ease;display:flex;flex-direction:column;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));box-shadow:4px 0 24px rgba(0,0,0,.2)}
+.drawer.on{transform:none}
+.dh{background:var(--top);color:#fff;padding:calc(20px + env(safe-area-inset-top,0px)) 16px 20px max(18px,env(safe-area-inset-left,0px));display:flex;justify-content:space-between;align-items:center}
+.dh b{color:#fff;font:800 28px/1 var(--fd);letter-spacing:.07em;text-transform:uppercase}
+.dh small{color:rgba(255,255,255,.8);font-size:14px;margin-top:4px}
+.dl{padding:18px 18px 6px max(18px,env(safe-area-inset-left,0px));font:700 13px var(--fb);letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+.di{display:flex;align-items:center;gap:14px;width:100%;padding:13px 18px 13px max(18px,env(safe-area-inset-left,0px));background:none;border:0;color:var(--ink);font:600 17px var(--fb);cursor:pointer;text-align:left}
+.di:hover{background:var(--bg)}
+.di.on{background:var(--acbg);color:var(--act)}
+.di svg{flex:none}
+.gdot{width:14px;height:14px;border-radius:50%;flex:none}
+.di .chk{margin-left:auto}
+
+/* toevoegen: tabbladen en teambeheer */
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--card);padding:4px;border-radius:12px;box-shadow:var(--shadow);margin-bottom:14px}
+.seg button{flex:1 1 auto;border:0;background:none;padding:10px 8px;border-radius:9px;font:700 16px var(--fd);color:var(--mu);cursor:pointer;white-space:nowrap}
+.seg button.sel{background:var(--top);color:#fff}
+img.crest{object-fit:cover;background:var(--card);padding:0}
+img.crest.lg{object-fit:contain;border-radius:0;box-shadow:none;background:none}
+.ted{display:flex;gap:16px;align-items:center;padding-top:14px}
+.logoPick{width:104px;height:104px;flex:none;border:2px dashed var(--line);border-radius:20px;background:var(--bg);display:grid;place-items:center;cursor:pointer;overflow:hidden;padding:0;color:var(--mu)}
+.logoPick img{width:100%;height:100%;object-fit:contain}
+.logoPick img.ph{object-fit:cover}
+.lp-empty{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.plist{display:flex;flex-direction:column;gap:6px}
+.pl{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;padding:6px 8px}
+.pl>span{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.pav{width:42px;height:42px;border-radius:50%;border:0;padding:0;overflow:hidden;background:var(--acbg);color:var(--act);font:800 16px var(--fd);cursor:pointer;flex:none;display:grid;place-items:center}
+.pav img{width:100%;height:100%;object-fit:cover;display:block}
+.squad{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px;padding:16px}
+.sq{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:600;font-size:14px;min-width:0;overflow-wrap:anywhere}
+.sq{background:none;border:0;color:var(--ink);font-family:inherit;cursor:pointer;padding:0}
+.sq .pav{width:66px;height:66px;font-size:24px;cursor:inherit}
+.pav.xl{width:104px;height:104px;font-size:38px;cursor:default}
+.chks{display:flex;flex-wrap:wrap;gap:6px}
+.chks label{margin:0;display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:7px 12px;color:var(--ink);font-size:14px;cursor:pointer}
+.chks input{width:auto}
+.li .ic{flex:none}
+.rhead{display:flex;align-items:center;gap:10px}
+.rn{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.rn b{font:700 20px/1.1 var(--fd);margin-right:2px;overflow-wrap:anywhere}
+img.club{width:24px;height:24px;object-fit:contain;display:block}
+/* overzicht: competitiekaarten, spelerspagina, voortgang */
+.cc{display:block;width:100%;text-align:left;background:var(--card);border:0;border-radius:14px;box-shadow:var(--shadow);padding:14px 16px 14px 22px;margin-bottom:10px;position:relative;overflow:hidden;color:var(--ink);cursor:pointer;font:inherit}
+.cc::before,.chead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--gc,var(--top))}
+.cc:hover{box-shadow:0 2px 4px rgba(11,29,68,.1),0 6px 18px rgba(11,29,68,.08)}
+.cc-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--mu);font-weight:600;flex-wrap:wrap}
+.cc-name{display:block;font:700 22px/1.15 var(--fd);margin:4px 0 6px;overflow-wrap:anywhere}
+.cc-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.cc-pos{font:800 36px/1 var(--fd);color:var(--gc,var(--act))}
+.cc-pos small{display:inline;font:600 14px var(--fb);color:var(--mu);margin-left:5px}
+.cc-stat{font-size:14px;color:var(--mu)}
+.prog{height:7px;border-radius:99px;background:var(--line);overflow:hidden;margin:12px 0 6px}
+.prog i{display:block;height:100%;background:var(--gc,var(--top));border-radius:99px}
+.cc-foot{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mu);flex-wrap:wrap}
+.gchip{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--gc,var(--act))}
+.mini{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.mini div{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600}
+.mini b{font-variant-numeric:tabular-nums;margin-left:auto;font-weight:700;color:var(--mu)}
+.chead{position:relative;overflow:hidden;padding:14px 16px 14px 22px}
+.chn{font:800 32px/1.05 var(--fd);margin:6px 0 10px;text-wrap:balance;overflow-wrap:anywhere}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px}
+.gtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.gt{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:12px 14px;border-top:5px solid var(--gc);display:flex;flex-direction:column;gap:6px;min-width:0;text-align:left;border-left:0;border-right:0;border-bottom:0;cursor:pointer;color:var(--ink);font:inherit}
+.gt b{font:700 19px var(--fd)}
+.gt .bd,.li .bd{align-self:flex-start;width:max-content}
+.gt span.st{font-size:13px;color:var(--mu);font-variant-numeric:tabular-nums}
+.tchip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border-radius:99px;padding:3px 11px 3px 3px;font-size:14px;font-weight:600;border:0;color:var(--ink);cursor:pointer;font-family:inherit}
+.dayh{font:700 15px var(--fb);color:var(--mu);margin:18px 4px 8px;text-transform:capitalize}
+.dayh:first-of-type{margin-top:4px}
+.lr{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px;font-size:15px}
+.lr .who{flex:1;min-width:0;overflow-wrap:anywhere}
+.lr .scr{font:800 18px var(--fd);font-variant-numeric:tabular-nums}
+.lr small{display:block}
+.pstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.pstats .stat b{font-size:26px}
+@media (max-width:380px){.pstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* bijsnijden */
+.crop{position:fixed;inset:0;z-index:70;background:rgba(5,12,30,.72);display:grid;place-items:center;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.cropbox{-webkit-user-select:none;user-select:none;background:var(--card);color:var(--ink);border-radius:18px;padding:16px;width:min(360px,100%);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.cropbox h3{margin:0;font:700 24px var(--fd)}
+.cropvp{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden;border-radius:12px;background:repeating-conic-gradient(var(--line) 0 25%,var(--bg) 0 50%) 0 0/20px 20px;touch-action:none;cursor:grab;margin:12px 0 10px;user-select:none}
+.cropvp:active{cursor:grabbing}
+.cropvp img{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.cropvp::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:12px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.9)}
+.cropvp.round::after{border-radius:50%;box-shadow:0 0 0 999px rgba(5,12,30,.5),inset 0 0 0 2px #fff}
+.cropz{display:flex;align-items:center;gap:10px;color:var(--mu);font-weight:700}
+.cropz input{padding:0;border:0;background:none;accent-color:var(--top);flex:1}
+.cropbtns{display:flex;gap:8px;margin-top:6px}
+.cropbtns .go{margin-top:8px}
+#toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:99px;font-size:15px;font-weight:600;display:none;z-index:60;max-width:90%;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+@media (max-width:420px){.ch h2{font-size:22px}.slide{padding-inline:8px}.mid{font-size:28px;min-width:54px}.t{gap:7px;font-size:15px}.sc{min-width:58px;font-size:19px}}
+</style>
+</head>
+<body>
+<header class="bar">
+ <button class="ib" id="menuBtn" onclick="openDrawer()" aria-label="Menu openen"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+ <h1 id="h1">Zonderbord</h1>
+ <button class="ib" id="rightBtn"></button>
+</header>
+<main id="view"></main>
+<nav class="dock" id="dock" aria-label="Teams"></nav>
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-label="Menu"></aside>
+<div id="toast" role="status"></div>
+<input type="file" id="file" accept="image/*" hidden onchange="gotFile(this)">
+<div class="crop" id="crop" hidden role="dialog" aria-modal="true" aria-labelledby="cropTitle">
+ <div class="cropbox">
+  <h3 id="cropTitle">Bijsnijden</h3>
+  <p class="inf" style="margin:2px 0 0">Sleep om te verplaatsen. Zoom met de schuif, twee vingers of het scrollwiel.</p>
+  <div class="cropvp" id="cropVp"><img id="cropImg" alt=""></div>
+  <div class="cropz"><span aria-hidden="true">−</span><input type="range" id="cropZoom" min="0" max="100" value="0" aria-label="Zoom" oninput="cropZoomTo(+this.value)"><span aria-hidden="true">+</span></div>
+  <div class="cropbtns"><button class="go alt" onclick="cropCancel()">Annuleren</button><button class="go" onclick="cropDone()">Gebruiken</button></div>
+ </div>
+</div>
+
+<script>
+// Firebase-config van project Zonderplan21
+const firebaseConfig={
+ apiKey:"AIzaSyD_6yv1599Lm0dHh7Dy4fH3lT81BUg0HO0",
+ authDomain:"zonderplan-86803.firebaseapp.com",
+ projectId:"zonderplan-86803",
+ storageBucket:"zonderplan-86803.firebasestorage.app",
+ messagingSenderId:"1039487852004",
+ appId:"1:1039487852004:web:c00a516332b869ff897bf1",
+ measurementId:"G-GKG7VE5GRD"
+};
+// Beheer-account in Firebase Authentication. Het wachtwoord van dit account is je beheercode.
+const ADMIN_EMAIL="beheer@zonderbord.nl";
+
+const GM={
+ zonderbord:{n:"Zonderbord",e:"🏆",u:"spelers",c:"#00a046"},
+ fifa:{n:"FIFA",e:"🎮",u:"spelers",c:"#1f4fd6"},
+ voetvolley:{n:"Voetvolley",e:"🏐",u:"spelers",c:"#e2570b"},
+ clash:{n:"Clash Royale",e:"⚔️",u:"spelers",c:"#7b2fd0"}
+};
+const IC={
+ chev:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+ back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>',
+ home:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>',
+ cal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>',
+ list:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>',
+ trophy:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v2a3 3 0 0 0 3 3M16 6h3v2a3 3 0 0 1-3 3M12 13v4M8 20h8"/></svg>',
+ team:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 6"/></svg>',
+ user:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+ medal:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M8 3l3 7M16 3l-3 7"/></svg>',
+ plus:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ lock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ unlock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>',
+ camera:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+ check:'<svg class="chk" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+ whistle:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>'
+};
+
+let db=null,admin=false,canWrite=false,live=false,pend=null;
+let game="zonderbord",view="home",open=null,openT=null,teamName=null,editM=null,editC=null,newTid="";
+let RAWM=[],RAWT=[],RAWC=[],RAWTO=[],matches=[],teams=[],comps=[],tourns=[],RTC=null;
+let addTab="res",draft=null,pickT=null,TM={};
+let RAWP=[],PM={},PN={},pdraft=null,curP=null,prevTeam=null;
+let NAV=[],compTab="stand",curName=null;
+let ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let tt;window.alert=m=>{const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(tt);tt=setTimeout(()=>{t.style.display="none"},3200)};
+try{const sg=localStorage.getItem("zb-game");if(GM[sg])game=sg}catch(e){}
+
+function isP(){return true} // alle spellen hetzelfde: spelers tegen elkaar, met hun team erbij
+function MAXP(){return game==="voetvolley"?5:0}
+function U(){return game==="voetvolley"||game==="fifa"?"Goals":"Punten"}
+// FIFA: een duel bestaat uit 2 wedstrijden, de totaalstand bepaalt de winnaar
+function LEGS(){return 1}
+function legsLine(L){return false&&Array.isArray(L)&&L.length>1?`<div class="inf">${L.map((x,i)=>`${i+1}e wedstrijd: <b>${x.a} – ${x.b}</b>`).join(" · ")} · totaal telt</div>`:""}
+function legVal(L,i,k){return Array.isArray(L)&&L[i]?L[i][k]:""}
+function mxAttr(){return MAXP()?` max="${MAXP()}"`:""}
+function Tm(){return isP()?"Speler":"Team"}
+function hue(n){let h=0;for(const ch of String(n))h=(h*31+ch.charCodeAt(0))%360;return h}
+function ini(n){const w=String(n).trim().split(/\s+/).filter(Boolean);if(!w.length)return"?";return(w.length>1?w[0][0]+w[1][0]:w[0].slice(0,2)).toUpperCase()}
+function crest(n,s){const pp=isP()&&PN[pkey(n)];if(pp&&pp.photo)return `<img class="crest ph" src="${pp.photo}" alt="" style="--s:${s||56}px">`;const t=TM[n];if(t&&t.logo)return `<img class="crest ${isP()?"ph":"lg"}" src="${t.logo}" alt="" style="--s:${s||56}px">`;return `<span class="crest" style="--h:${hue(n)};--s:${s||56}px" aria-hidden="true">${esc(ini(n))}</span>`}
+function ago(t){if(!t||t<1e11)return"";const m=(Date.now()-t)/6e4;if(m<60)return Math.max(1,Math.round(m))+" min geleden";const h=m/60;if(h<24)return Math.round(h)+" uur geleden";const d=h/24;if(d<7)return Math.round(d)+(Math.round(d)===1?" dag":" dagen")+" geleden";return new Date(t).toLocaleDateString("nl-NL",{day:"numeric",month:"short"})}
+
+function names(){const s=new Set(isP()?[]:teams.map(t=>t.name));matches.forEach(m=>{s.add(m.a);s.add(m.b)});comps.forEach(c=>(c.teams||[]).forEach(n=>s.add(n)));if(isP())RAWP.forEach(x=>x.name&&s.add(x.name));return [...s].filter(Boolean).sort((a,b)=>a.localeCompare(b))}
+function rec(list){const t={};list.forEach(m=>{for(const[n,f,a]of[[m.a,m.sa,m.sb],[m.b,m.sb,m.sa]]){const r=t[n]=t[n]||{n,g:0,w:0,v:0,d:0,vo:0,te:0};r.g++;r.vo+=f;r.te+=a;if(f>a)r.w++;else if(f<a)r.v++;else r.d++}});return t}
+
+// ---- schema's (afgeleid van teams, alleen scores worden opgeslagen)
+function leagueFix(c){
+ const ts=[...c.teams];if(ts.length%2)ts.push(null);const m=ts.length,out=[];
+ for(let rep=0;rep<(c.x||1);rep++){let arr=[...ts];
+  for(let r=0;r<m-1;r++){const rd=[];
+   for(let i=0;i<m/2;i++){let a=arr[i],b=arr[m-1-i];if(!a||!b)continue;if(rep%2)[a,b]=[b,a];rd.push({key:`${rep}-${r}-${i}`,a,b})}
+   out.push({label:"Ronde "+(rep*(m-1)+r+1),games:rd});
+   arr=[arr[0],arr[m-1],...arr.slice(1,m-1)];}}
+ return out;
+}
+function koRounds(c){
+ const n=c.teams.length;let S=2;while(S<n)S*=2;
+ let order=[1];while(order.length<S){const L=order.length*2;order=order.flatMap(x=>[x,L+1-x])}
+ let ent=order.map(s=>c.teams[s-1]||null),rounds=[],r=0,total=Math.log2(S);
+ while(ent.length>1){const games=[],next=[];
+  for(let i=0;i<ent.length;i+=2){const a=ent[i],b=ent[i+1],key=`k${r}-${i/2}`,sc=(c.scores||{})[key];let w=null;
+   if(a&&!b)w=a;else if(b&&!a)w=b;else if(a&&b&&sc&&sc[0]!==sc[1])w=sc[0]>sc[1]?a:b;
+   games.push({key,a,b,w,bye:!!(a&&!b||b&&!a)});next.push(w)}
+  const left=total-r;rounds.push({label:left===1?"Finale":left===2?"Halve finale":left===3?"Kwartfinale":"Ronde "+(r+1),games});ent=next;r++}
+ return {rounds,champ:ent[0]};
+}
+function progress(c){const sc=Object.keys(c.scores||{}).length;if(c.type==="league")return sc+"/"+leagueFix(c).reduce((s,r)=>s+r.games.length,0);return sc+"/"+Math.max(0,c.teams.length-1)}
+function allGames(c){return c.type==="league"?leagueFix(c).flatMap(r=>r.games.map(g=>({...g,label:r.label}))):koRounds(c).rounds.flatMap(r=>r.games.filter(g=>!g.bye&&g.a&&g.b).map(g=>({...g,label:r.label})))}
+function allRes(ms=matches,cs=comps){const out=ms.map(m=>({...m,kind:"m",t:m.t||m.n}));
+ cs.forEach(c=>{const meta=c.meta||{},gs=allGames(c);Object.entries(c.scores||{}).forEach(([key,sc])=>{const g=gs.find(x=>x.key===key);if(!g)return;const mt=meta[key]||{};out.push({kind:"c",c,key,label:g.label,a:g.a,b:g.b,sa:sc[0],sb:sc[1],t:mt.t||c.created||0,info:mt.info||"",ref:mt.ref||"",mode:mt.mode||"",sub:mt.sub||"",ta:mt.ta||"",tb:mt.tb||"",legs:mt.legs||null})})});
+ return out}
+function upcoming(){const out=[];[...comps].sort((a,b)=>(a.created||0)-(b.created||0)).forEach(c=>allGames(c).forEach(g=>{if(!(c.scores||{})[g.key]&&g.a&&g.b)out.push({c,g})}));return out}
+
+function ratings(){
+ if(RTC)return RTC;
+ const G=allRes().map(m=>{const t=m.sa+m.sb;return{a:m.a,b:m.b,v:t?(Math.sign(m.sa-m.sb)+(m.sa-m.sb)/t)/2:0}});
+ const T=[...new Set(G.flatMap(g=>[g.a,g.b]))],r={};T.forEach(n=>r[n]=0);
+ for(let it=0;it<300;it++){const nr={};
+  T.forEach(n=>{let sum=0,c=0;G.forEach(g=>{if(g.a===n){sum+=g.v+r[g.b];c++}else if(g.b===n){sum+=-g.v+r[g.a];c++}});nr[n]=sum/(c+1)});
+  T.forEach(n=>r[n]=nr[n])}
+ const R={};T.forEach(n=>R[n]=1500+300*r[n]);return RTC=R}
+function rating(n){const R=ratings();return Math.round(R[n]===undefined?1500:R[n])}
+function oddsHtml(a,b){
+ const R=ratings(),ra=R[a]===undefined?1500:R[a],rb=R[b]===undefined?1500:R[b],all=allRes(),cnt=n=>all.filter(m=>m.a===n||m.b===n).length;
+ const p=Math.min(.9,Math.max(.1,1/(1+Math.exp((rb-ra)/220)))),q=1-p,low=Math.min(cnt(a),cnt(b))<2;
+ return `<div class="ob" aria-hidden="true"><i style="width:${Math.round(p*100)}%"></i><em style="width:${Math.round(q*100)}%"></em></div><div class="odds"><span><b>${(1/p).toFixed(2)}</b> · ${Math.round(p*100)}%</span><span>${Math.round(q*100)}% · <b>${(1/q).toFixed(2)}</b></span></div>${low?'<div class="inf">Weinig data over een van de twee, de odds zijn nog onzeker</div>':""}`;
+}
+
+// ---- ranks
+const RK=[{n:"Brons",i:"🥉",c:"#cd7f32"},{n:"Zilver",i:"🥈",c:"#8e99a6"},{n:"Goud",i:"🥇",c:"#d99a00"},{n:"Diamond",i:"💎",c:"#0ea5e9"}];
+function rk(i){return i===0?"rkD":i===1?"rkG":i===2?"rkS":"rkB"}
+function placeRank(p){return p===1?3:p===2?2:p===3?1:0}
+function rankBadge(t){return t===null||t===undefined?`<span class="bd">🌱 Rookie</span>`:`<span class="bd" style="--bc:${RK[t].c}">${RK[t].i} ${RK[t].n}</span>`}
+function isDone(c){if(c.type==="league")return Object.keys(c.scores||{}).length>=leagueFix(c).reduce((s,r)=>s+r.games.length,0);return !!koRounds(c).champ}
+function doneAt(c){return Math.max(c.created||0,...Object.values(c.meta||{}).map(m=>m.t||0))}
+function rankOf(g,n){const C=RAWC.filter(c=>(c.game||"zonderbord")===g&&c.ranked&&(c.teams||[]).includes(n)&&isDone(c)).sort((a,b)=>doneAt(b)-doneAt(a));
+ for(const c of C){const x=(finalPlaces(c)||[]).find(y=>y.name===n);if(x)return placeRank(x.place)}return null}
+function modeChip(c){return c.ranked?"⭐ Voor ranks":"Oefen"}
+function usesPoints(c){return ["fifa","clash"].includes(c.game||"zonderbord")&&c.type==="league"}
+function duelMode(c){return (c.game||"zonderbord")==="fifa"}
+function duels(c){const P={};leagueFix(c).forEach(r=>r.games.forEach(g=>{const[x,y]=[g.a,g.b].sort(),k=x+"\u0000"+y,d=P[k]=P[k]||{x,y,gx:0,gy:0,n:0,done:0};d.n++;const sc=(c.scores||{})[g.key];if(sc){d.done++;if(g.a===x){d.gx+=sc[0];d.gy+=sc[1]}else{d.gx+=sc[1];d.gy+=sc[0]}}}));return Object.values(P)}
+function pointRows(c){
+ if(!duelMode(c)){const all=[];leagueFix(c).forEach(r=>r.games.forEach(g=>{const sc=(c.scores||{})[g.key];if(sc)all.push({a:g.a,b:g.b,sa:sc[0],sb:sc[1]})}));const t=rec(all);
+  c.teams.forEach(n=>{if(!t[n])t[n]={n,g:0,w:0,v:0,d:0,vo:0,te:0}});Object.values(t).forEach(r=>r.p=3*r.w+r.d);
+  return Object.values(t).sort((a,b)=>b.p-a.p||(b.vo-b.te)-(a.vo-a.te)||b.vo-a.vo)}
+ const t={};c.teams.forEach(n=>t[n]={n,g:0,w:0,v:0,d:0,vo:0,te:0,p:0});
+ duels(c).forEach(d=>{const X=t[d.x],Y=t[d.y];if(!X||!Y)return;X.vo+=d.gx;X.te+=d.gy;Y.vo+=d.gy;Y.te+=d.gx;if(d.done<d.n)return;X.g++;Y.g++;
+  if(d.gx>d.gy){X.w++;Y.v++;X.p+=3}else if(d.gx<d.gy){Y.w++;X.v++;Y.p+=3}else{X.d++;Y.d++;X.p++;Y.p++}});
+ return Object.values(t).sort((a,b)=>b.p-a.p||(b.vo-b.te)-(a.vo-a.te)||b.vo-a.vo)}
+function duelsHtml(c){const D=duels(c);if(!D.length||(c.x||1)<2)return "";
+ return `<div class="sec">Duels (${c.x} wedstrijden tegen elkaar, totaal telt)</div>`+D.map(d=>{const st=d.done===0?"Nog niet begonnen":d.done<d.n?(d.gx===d.gy?"Gelijk":(d.gx>d.gy?d.x:d.y)+" staat voor")+` · nog ${d.n-d.done} wedstrijd${d.n-d.done===1?"":"en"}`:d.gx===d.gy?"Gelijk · allebei 1 punt":(d.gx>d.gy?d.x:d.y)+" wint · 3 punten";
+  return `<div class="m"><div class="mr"><div class="t ${d.done===d.n&&d.gx>d.gy?"w":""}">${crest(d.x,30)}<span>${esc(d.x)}</span></div><div class="sc ${d.done?"":"o"}">${d.done?d.gx+" – "+d.gy:"– : –"}</div><div class="t r ${d.done===d.n&&d.gy>d.gx?"w":""}">${crest(d.y,30)}<span>${esc(d.y)}</span></div></div><div class="mm"><span>${esc(st)}</span><span>${d.done}/${d.n} gespeeld</span></div></div>`}).join("")}
+function standRows(c){if(usesPoints(c))return pointRows(c);const all=[];leagueFix(c).forEach(r=>r.games.forEach(g=>{const sc=(c.scores||{})[g.key];if(sc)all.push({a:g.a,b:g.b,sa:sc[0],sb:sc[1]})}));const t=rec(all);c.teams.forEach(n=>{if(!t[n])t[n]={n,g:0,w:0,v:0,d:0,vo:0,te:0}});return Object.values(t).sort((x,y)=>y.w-x.w||(y.vo-y.te)-(x.vo-x.te)||y.vo-x.vo)}
+function finalPlaces(c){
+ if(c.type==="league")return standRows(c).map((r,i)=>({name:r.n,place:i+1}));
+ const k=koRounds(c);if(!k.champ)return null;
+ const place={};place[k.champ]=1;const R=k.rounds.length;
+ k.rounds.forEach((rd,ri)=>rd.games.forEach(g=>{if(!g.a||!g.b||!g.w)return;const l=g.w===g.a?g.b:g.a;if(place[l]===undefined)place[l]=ri===R-1?2:ri===R-2?3:4}));
+ c.teams.forEach(n=>{if(place[n]===undefined)place[n]=4});
+ return Object.entries(place).map(([name,p])=>({name,place:p})).sort((a,b)=>a.place-b.place||a.name.localeCompare(b.name))}
+
+// ---- overzicht-hulpjes
+function cg(c){return c.game||"zonderbord"}
+function jsq(n){return JSON.stringify(String(n)).replace(/"/g,"&quot;")}
+function pNums(c){const d=Object.keys(c.scores||{}).length,t=c.type==="league"?leagueFix(c).reduce((x,r)=>x+r.games.length,0):Math.max(1,(c.teams||[]).length-1);return{d,t,pct:Math.round(100*Math.min(1,t?d/t:0))}}
+function same(a,b){return pkey(a)===pkey(b)}
+function placeOf(c,n){if(c.type!=="league")return null;const R=standRows(c),i=R.findIndex(r=>same(r.n,n));return i<0?null:{i:i+1,of:R.length,r:R[i]}}
+function nextFor(c,n){return allGames(c).find(g=>!(c.scores||{})[g.key]&&(same(g.a,n)||same(g.b,n)))}
+function leaderLine(c){if(c.type==="league"){if(!Object.keys(c.scores||{}).length)return "Nog niets gespeeld";const r=standRows(c)[0];return (isDone(c)?"Winnaar: ":"Bovenaan: ")+r.n}const k=koRounds(c);return k.champ?"Winnaar: "+k.champ:"Knock-out bezig"}
+function compBig(c,who){
+ const g=cg(c),P=pNums(c);let mid="";
+ if(who){const me=(c.teams||[]).find(x=>same(x,who))||who;
+  if(c.type==="league"){const q=placeOf(c,me);mid=q?`<div class="cc-row"><span class="cc-pos">${q.i}e<small>van ${q.of}</small></span><span class="cc-stat">${usesPoints(c)?`<b>${q.r.p}</b> punten · `:""}${q.r.w} gewonnen · ${q.r.v} verloren</span></div>`:""}
+  else mid=`<div class="cc-row"><span class="cc-pos" style="font-size:24px">${esc(koStatus(c,me)||"Bezig")}</span></div>`;
+  const nx=nextFor(c,me);if(nx)mid+=`<div class="inf">Volgende wedstrijd: tegen <b>${esc(same(nx.a,me)?nx.b:nx.a)}</b> · ${esc(nx.label)}</div>`}
+ else if(c.type==="league"&&Object.keys(c.scores||{}).length)mid=`<div class="mini">${standRows(c).slice(0,3).map((r,i)=>`<div><span class="rank ${rk(i)}">${i+1}</span>${crest(r.n,24)}<span>${esc(r.n)}</span><b>${usesPoints(c)?r.p+" pnt":r.w+" gew."}</b></div>`).join("")}</div>`;
+ else mid=`<div class="inf" style="margin-top:0">${esc(leaderLine(c))}</div>`;
+ return `<button class="cc" style="--gc:${GM[g].c}" onclick="openCompIn('${g}','${c.id}')"><div class="cc-top"><span class="gchip">${GM[g].e} ${GM[g].n}</span><span>${c.type==="league"?"Competitie":"Knock-out"} · ${modeChip(c)}</span></div><span class="cc-name">${esc(c.name)}</span>${mid}<div class="prog" aria-hidden="true"><i style="width:${P.pct}%"></i></div><div class="cc-foot"><span>${P.d} van ${P.t} gespeeld</span><span>${isDone(c)?"Afgelopen 🏁":"Bezig"}</span></div></button>`}
+function dayLabel(t){if(!t||t<1e11)return "Eerder";const d=new Date(t),n=new Date(),y=new Date();y.setDate(n.getDate()-1);const k=x=>x.toDateString();return k(d)===k(n)?"Vandaag":k(d)===k(y)?"Gisteren":d.toLocaleDateString("nl-NL",{weekday:"long",day:"numeric",month:"long"})}
+function gameStats(g,n){const f=x=>cg(x)===g,res=allRes(RAWM.filter(f),RAWC.filter(f)).filter(m=>same(m.a,n)||same(m.b,n));let w=0,v=0,d=0;res.forEach(m=>{const me=same(m.a,n),a=me?m.sa:m.sb,b=me?m.sb:m.sa;if(a>b)w++;else if(a<b)v++;else d++});return{res:res.map(m=>({...m,g})),w,v,d}}
+function personDetail(n){
+ if(!n)return pageTitle("Speler niet gevonden","goBack()");
+ const pr=PN[pkey(n)]||{id:null,name:n,photo:(TM[n]&&TM[n].logo)||""},TT=pr.id?teamsOf(pr.id):[];
+ const isMe=!!(ME&&pr.id&&pr.id===myPid());
+ const C=RAWC.filter(c=>(c.teams||[]).some(x=>same(x,n))),act=C.filter(c=>!isDone(c)).sort((a,b)=>doneAt(b)-doneAt(a)),fin=C.filter(isDone).sort((a,b)=>doneAt(b)-doneAt(a));
+ const G=Object.keys(GM),S={};G.forEach(g=>S[g]=gameStats(g,n));
+ const all=G.flatMap(g=>S[g].res).sort((a,b)=>b.t-a.t),W=G.reduce((x,g)=>x+S[g].w,0),V=G.reduce((x,g)=>x+S[g].v,0);
+ let h=`<button class="back" onclick="goBack()">${IC.back} Terug</button>`;
+ h+=`<div class="card thero">${isMe?`<span class="bd" style="--bc:var(--act)">⭐ Dit ben jij</span>`:""}${pav(pr,"xl")}<h2>${esc(pr.name)}</h2>${TT.length?`<div class="chiprow" style="justify-content:center">${TT.map(t=>`<button class="tchip" onclick="openClub(${jsq(t.name)})">${tcrest(t.name,26)}${esc(t.name)}${t.founder===pr.id?" 👑":""}</button>`).join("")}</div>`:`<div class="sub">Zit nog niet in een team</div>`}</div>`;
+ h+=`<div class="pstats"><div class="stat"><b>${all.length}</b><span>gespeeld</span></div><div class="stat"><b>${W}</b><span>gewonnen</span></div><div class="stat"><b>${V}</b><span>verloren</span></div><div class="stat"><b>${act.length}</b><span>bezig</span></div></div>`;
+ h+=`<div class="sec">Nu bezig</div>`+(act.length?act.map(c=>compBig(c,n)).join(""):`<div class="card empty">Doet nu niet mee aan een competitie.</div>`);
+ h+=`<div class="sec">Per spel</div><div class="gtiles">${G.map(g=>{const x=S[g];return `<div class="gt" style="--gc:${GM[g].c}"><b>${GM[g].e} ${GM[g].n}</b>${rankBadge(rankOf(g,n))}<span class="st">${x.res.length} gespeeld · ${x.w} W · ${x.v} V${x.d?" · "+x.d+" G":""}</span></div>`}).join("")}</div>`;
+ if(fin.length)h+=`<div class="sec">Afgelopen competities</div>`+fin.map(c=>{const g=cg(c),fp=(finalPlaces(c)||[]).find(x=>same(x.name,n));return `<button class="li" style="margin-bottom:8px" onclick="openCompIn('${g}','${c.id}')">${fp?`<span class="rank ${rk(fp.place-1)}">${fp.place}</span>`:""}<div><b>${esc(c.name)}</b><span>${GM[g].e} ${GM[g].n} · ${fp?fp.place+"e plek":"afgelopen"}</span>${c.ranked&&fp?`<span style="display:block;margin-top:4px">${rankBadge(placeRank(fp.place))}</span>`:""}</div>${IC.chev}</button>`}).join("");
+ h+=`<div class="sec">Laatste uitslagen</div>`+(all.length?all.slice(0,8).map(m=>{const me=same(m.a,n),a=me?m.sa:m.sb,b=me?m.sb:m.sa,r=a>b?"W":a<b?"V":"G",opp=me?m.b:m.a;return `<div class="lr"><span class="pill ${r}">${r}</span><span class="gdot" style="background:${GM[m.g].c}" title="${GM[m.g].n}"></span><span class="who">tegen <b>${esc(opp)}</b><small class="inf" style="margin:0">${GM[m.g].n} · ${m.kind==="c"?esc(m.c.name):"Vriendschappelijk"}</small></span><span class="scr">${a} – ${b}</span></div>`}).join(""):`<div class="card empty">Nog geen wedstrijden gespeeld.</div>`);
+ if(isMe)h+=`<div class="acts"><button class="ic" onclick="go('me');mdraft={name:PM[myPid()].name,photo:PM[myPid()].photo||''};render()">✎ Bewerk mijn speler</button><button class="ic" onclick="go('me')">👑 Mijn team</button></div>`;
+ else if(admin&&canWrite&&pr.id)h+=`<div class="acts"><button class="ic" onclick="editPlayerDraft('${pr.id}')">✎ Bewerk speler</button><button class="ic" onclick="delPlayer('${pr.id}')">🗑 Verwijder speler</button></div>`;
+ return h}
+
+// ---- Mijn profiel: iedereen maakt 1 eigen speler en 1 eigen team (en is daar leider van)
+function myPid(){if(!ME)return "";if(ME.pid&&PM[ME.pid])return ME.pid;const o=RAWP.find(p=>p.owner===ME.uid);if(o)return o.id;if(ME.eh){const e=RAWP.find(p=>p.eh===ME.eh);if(e)return e.id}return ME.pid||ME.uid}
+function myTeamId(){return ME?"team_"+ME.uid:""}
+function nameUsed(n){const k=pkey(n);return RAWM.some(m=>pkey(m.a)===k||pkey(m.b)===k)||RAWC.some(c=>(c.teams||[]).some(x=>pkey(x)===k))}
+function meHtml(){
+ let h=pageTitle("Mijn profiel");
+ if(!live)return h+`<div class="card empty">Nog niet verbonden met de database.</div>`;
+ if(!ME)return h+`<div class="card pad"><b>Doe zelf mee</b><div class="inf">Iedereen kan met zijn eigen account één speler maken, met naam en foto. Daarna kun je één team oprichten. Daarvan ben je automatisch de leider.</div>${window.firebase?`<button class="go" onclick="googleLogin()">Inloggen met Google</button>`:`<div class="inf"><b>Je kunt deze pagina nu alleen bekijken.</b> Vraag de eigenaar om je de rol Contributor te geven (via Delen). Daarna kun je hier met je eigen account één speler en één team maken.</div>`}</div>`+loginCard();
+ const P=PM[myPid()],T=RAWT.find(t=>t.id===myTeamId());
+ h+=`<div class="sec">Mijn speler</div>`;
+ if(mdraft)h+=myPlayerForm(P);
+ else if(P){const TT=teamsOf(P.id);h+=`<div class="card pad"><div class="rhead">${pav(P,"")}<div class="rn" style="flex:1"><b>${esc(P.name)}</b></div></div><div class="inf">${TT.length?"In "+TT.map(t=>esc(t.name)+(t.founder===P.id?" 👑":"")).join(", "):"Zit nog niet in een team"}</div><div class="acts"><button class="ic" onclick="mdraft={name:PM[myPid()].name,photo:PM[myPid()].photo||''};render()">✎ Bewerk</button><button class="ic" onclick="openPerson(${jsq(P.name)})">Bekijk mijn pagina ›</button></div></div>`}
+ else h+=`<div class="card pad"><div class="inf" style="margin-top:0">Je hebt nog geen speler. Maak er een, dan kun je meedoen in competities.${ME.email?` Staat je naam er al in? Vraag de beheerder om <b>${esc(ME.email)}</b> aan jouw speler te koppelen, dan zie je hem hier vanzelf.`:` Staat je naam er al in? Vraag de beheerder om je e-mailadres aan jouw speler te koppelen.`}</div><button class="go" onclick="mdraft={name:'${esc(ME.name||"").replace(/'/g,"")}',photo:''};render()">+ Maak mijn speler</button></div>`;
+ h+=`<div class="sec">Mijn team</div>`;
+ if(!P)h+=`<div class="card empty">Maak eerst je speler aan.</div>`;
+ else if(tdraft)h+=myTeamForm(T);
+ else if(T)h+=`<div class="card pad"><div class="rhead">${tcrest(T.name,44)}<div class="rn" style="flex:1"><b>${esc(T.name)}</b></div></div><div class="inf">👑 Jij bent de leider · ${teamPlayers(T).length} speler${teamPlayers(T).length===1?"":"s"}${T.founded?" · opgericht op "+esc(fmtDate(T.founded)):""}</div><div class="acts"><button class="ic" onclick="editMyTeam()">✎ Bewerk team</button><button class="ic" onclick="openClub(${jsq(T.name)})">Bekijk team ›</button><button class="ic" onclick="delMyTeam()">🗑 Verwijder</button></div></div>`;
+ else h+=`<div class="card pad"><div class="inf" style="margin-top:0">Richt je eigen team op. Je bent automatisch de leider en je kunt één team maken.</div><button class="go" onclick="tdraft={name:'',logo:'',founded:new Date().toISOString().slice(0,10),ids:[]};render()">+ Richt een team op</button></div>`;
+ h+=`<div class="acts" style="margin-top:18px">${window.firebase?`<button class="ic" onclick="logout()">Uitloggen</button>`:""}</div>`+(admin?"":loginCard());
+ return h}
+function loginCard(){return `<div class="sec">Beheerder</div><button class="li" onclick="go('login')"><span class="nicon" style="width:auto">${IC.lock}</span><div><b>Inloggen met beheercode</b><span>Voor uitslagen en competities</span></div>${IC.chev}</button>`}
+function myPlayerForm(P){const d=mdraft,lock=P&&nameUsed(P.name);
+ return `<div class="form"><div class="ted"><button class="logoPick" style="border-radius:50%" onclick="pick({k:'mp'})" aria-label="Foto kiezen">${d.photo?`<img src="${d.photo}" class="ph" alt="">`:`<span class="lp-empty">${IC.camera}<span>Foto</span></span>`}</button>
+ <div style="flex:1;min-width:0"><label for="mn" style="margin-top:0">Naam</label><input id="mn" value="${esc(d.name)}" ${lock?"disabled":""} oninput="mdraft.name=this.value">${lock?`<p class="inf">Je naam staat al in uitslagen en kan niet meer veranderen.</p>`:""}${d.photo?`<button class="ic" style="margin:10px 0 0" onclick="mdraft.photo='';render()">Foto weghalen</button>`:`<p class="inf">Tik op het rondje voor een foto</p>`}</div></div>
+ <button class="go" onclick="saveMe()">Opslaan</button><button class="go alt" onclick="mdraft=null;render()">Annuleren</button></div>`}
+async function saveMe(){
+ const d=mdraft,P=PM[myPid()],name=((P&&nameUsed(P.name))?P.name:(d.name||"")).trim();
+ if(!name){alert("Vul je naam in");return}
+ if(RAWP.some(x=>x.id!==myPid()&&pkey(x.name)===pkey(name))){alert("Er is al een speler "+name+". Kies een andere naam, of vraag de beheerder om de oude te verwijderen.");return}
+ if(RAWT.some(t=>pkey(t.name)===pkey(name))){alert("Die naam is al een team. Kies een andere naam.");return}
+ if(await myPut("players",myPid(),{...(P?strip(P):{created:Date.now()}),name,photo:d.photo||"",owner:ME.uid})){if(!P&&ME.email&&!ME.pid){try{await db.collection("emails").doc(ME.email).set({pid:ME.uid})}catch(e){}}mdraft=null;alert("Opgeslagen");render()}
+}
+function editMyTeam(){const T=RAWT.find(t=>t.id===myTeamId());if(!T)return;tdraft={name:T.name,logo:T.logo||"",founded:T.founded||"",ids:teamPlayers(T).map(p=>p.id).filter(x=>x&&x!==myPid())};render()}
+function myTeamForm(T){const d=tdraft,others=RAWP.filter(x=>x.name&&x.id!==myPid()).sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="form"><div class="ted"><button class="logoPick" onclick="pick({k:'mlogo'})" aria-label="Logo kiezen">${d.logo?`<img src="${d.logo}" alt="">`:`<span class="lp-empty">${IC.camera}<span>Logo</span></span>`}</button>
+ <div style="flex:1;min-width:0"><label for="mtn" style="margin-top:0">Teamnaam</label><input id="mtn" value="${esc(d.name)}" oninput="tdraft.name=this.value">${d.logo?`<button class="ic" style="margin:10px 0 0" onclick="tdraft.logo='';render()">Logo weghalen</button>`:`<p class="inf">Tik op het vak voor een logo</p>`}</div></div>
+ <div class="row"><div><label>👑 Leider</label><input value="${esc(PM[myPid()].name)} (jij)" disabled></div><div><label for="mtd">Opgericht op</label><input id="mtd" type="date" value="${esc(d.founded)}" onchange="tdraft.founded=this.value"></div></div>
+ <label>Spelers in je team</label>${others.length?`<div class="chks">${others.map(x=>`<label><input type="checkbox" ${d.ids.includes(x.id)?"checked":""} onchange="this.checked?tdraft.ids.push('${x.id}'):tdraft.ids=tdraft.ids.filter(i=>i!=='${x.id}')">${esc(x.name)}</label>`).join("")}</div>`:`<p class="inf">Er zijn nog geen andere spelers.</p>`}
+ <p class="inf">Jij zit er altijd in als leider.</p>
+ <button class="go" onclick="saveMyTeam()">Opslaan</button><button class="go alt" onclick="tdraft=null;render()">Annuleren</button></div>`}
+async function saveMyTeam(){
+ const d=tdraft,name=(d.name||"").trim(),id=myTeamId(),T=RAWT.find(t=>t.id===id);
+ if(!name){alert("Geef je team een naam");return}
+ if(RAWT.some(t=>t.id!==id&&pkey(t.name)===pkey(name))){alert("Er is al een team met die naam");return}
+ if(RAWP.some(x=>pkey(x.name)===pkey(name))){alert("Die naam is al een speler. Kies een andere naam.");return}
+ const ids=[myPid(),...d.ids.filter(x=>PM[x]&&x!==myPid())];
+ if(await myPut("teams",id,{...(T?strip(T):{created:Date.now()}),name,logo:d.logo||"",founded:d.founded||"",players:ids,members:ids.map(k=>PM[k].name).join(" & "),founder:myPid(),owner:ME.uid})){tdraft=null;alert("Opgeslagen");render()}
+}
+async function delMyTeam(){
+ const id=myTeamId();if(pend!=="mt"){pend="mt";alert("Tik nog een keer om je team te verwijderen");setTimeout(()=>{pend=null},4000);return}
+ pend=null;try{await db.collection("teams").doc(id).delete();alert("Team verwijderd")}catch(e){alert("Verwijderen mislukt")}
+}
+
+// ---- navigatie
+function scrollTop(){window.scrollTo(0,0)}
+function go(v){NAV=[];if(v!=="me"){mdraft=null;tdraft=null}view=v;draft=null;pdraft=null;editM=null;editC=null;newTid="";if(v!=="comps"){open=null;openT=null}if(v!=="team")teamName=null;closeDrawer();render();scrollTop()}
+function openComp(id){if(id){pushNav();compTab="stand"}view="comps";open=id;openT=null;closeDrawer();render();scrollTop()}
+function snap(){return{view,open,teamName,curName,game,compTab}}
+function pushNav(){NAV.push(snap());if(NAV.length>40)NAV.shift()}
+function goBack(){const x=NAV.pop();if(!x){go("home");return}if(x.game!==game){game=x.game;try{localStorage.setItem("zb-game",game)}catch(e){}applyGame()}view=x.view;open=x.open;teamName=x.teamName;curName=x.curName;compTab=x.compTab;closeDrawer();render();scrollTop()}
+function openPerson(n){if(!n)return;pushNav();curName=n;view="person";closeDrawer();render();scrollTop()}
+function openCompIn(g,id){pushNav();if(g!==game){game=g;try{localStorage.setItem("zb-game",g)}catch(e){}applyGame()}view="comps";open=id;compTab="stand";closeDrawer();render();scrollTop()}
+function openTeam(i){const n=names()[i];if(!n)return;if(TM[n]&&!PN[pkey(n)]){openClub(n);return}openPerson(n)}
+function tIdx(n){return names().indexOf(n)}
+function setGame(g){NAV=[];game=g;draft=null;pdraft=null;try{localStorage.setItem("zb-game",g)}catch(e){}view="home";open=null;openT=null;teamName=null;editM=null;editC=null;applyGame();closeDrawer();render();scrollTop()}
+function openDrawer(){$("#drawer").classList.add("on");$("#scrim").classList.add("on");setTimeout(()=>{const b=$("#drawer button");b&&b.focus()},50)}
+function closeDrawer(){$("#drawer").classList.remove("on");$("#scrim").classList.remove("on")}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});
+function applyGame(){const f=x=>(x.game||"zonderbord")===game;matches=RAWM.filter(f);teams=RAWT.filter(t=>t.name);tourns=RAWTO.filter(f).sort((a,b)=>(b.created||0)-(a.created||0));comps=RAWC.filter(f).sort((a,b)=>(b.created||0)-(a.created||0));RTC=null;TM={};teams.forEach(t=>{if(t.name&&!TM[t.name])TM[t.name]=t});PM={};PN={};RAWP.forEach(x=>{if(!x.name)return;PM[x.id]=x;if(!PN[pkey(x.name)])PN[pkey(x.name)]=x})}
+
+// ---- opbouw
+function chrome(){
+ document.documentElement.dataset.game=game;
+ const G=GM[game];document.title=G.n;$("#h1").textContent=G.n;
+ const mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.content=G.c;
+ const rb=$("#rightBtn");
+ if(admin&&canWrite){rb.innerHTML=IC.plus;rb.setAttribute("aria-label","Nieuw toevoegen");rb.onclick=()=>go("add")}
+ else{rb.innerHTML=ME&&PM[myPid()]?pcrest(PM[myPid()],34):IC.user;rb.setAttribute("aria-label","Mijn profiel");rb.onclick=()=>{const m=ME&&PM[myPid()];if(m)openPerson(m.name);else go("me")}}
+ const N=names();
+ const items=dockItems();
+ $("#dock").innerHTML=`<button class="dk ${view==="home"?"on":""}" onclick="go('home')"><span class="homei">${IC.home}</span><span class="nm">Home</span></button>`+(items.length?`<span class="dsep"></span>`:"")+items.join("");
+ const nav=[["me","Mijn profiel",IC.user],["home","Home",IC.home],["program","Programma",IC.cal],["results","Uitslagen",IC.list],["comps","Competities",IC.trophy],["teams","Teams",IC.team],["players","Spelers",IC.user],["ranks","Ranks",IC.medal]];
+ if(admin&&canWrite)nav.push(["add","Nieuw toevoegen",IC.plus]);
+ $("#drawer").innerHTML=`<div class="dh"><div><b>Zonderbord</b><small>Uitslagen · competities · ${G.u}</small></div><button class="ib" onclick="closeDrawer()" aria-label="Menu sluiten">${IC.x}</button></div>
+ <div class="dl">Spel</div>${Object.keys(GM).map(k=>`<button class="di ${game===k?"on":""}" onclick="setGame('${k}')"><span class="gdot" style="background:${GM[k].c}"></span>${GM[k].e} ${GM[k].n}${game===k?IC.check:""}</button>`).join("")}
+ <div class="dl">Menu</div>${nav.map(([k,l,ic])=>`<button class="di ${view===k?"on":""}" onclick="go('${k}')">${ic}${l}</button>`).join("")}
+ <div class="dl">Beheer</div>${admin?`<button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di" onclick="go('login')">${IC.lock}Inloggen met code</button>`}
+ ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}`;
+}
+function render(){
+ RTC=null;chrome();
+ const v=$("#view");let h="";
+ if(view==="home")h=homeHtml();
+ else if(view==="program")h=programHtml();
+ else if(view==="results")h=resultsHtml();
+ else if(view==="comps"){const c=comps.find(x=>x.id===open);if(c)h=compDetail(c);else{open=null;h=compsHtml()}}
+ else if(view==="teams")h=teamsHtml();
+ else if(view==="team"){if(teamName&&(names().includes(teamName)||TM[teamName]))h=teamDetail(teamName);else{view="teams";h=teamsHtml()}}
+ else if(view==="players")h=playersHtml();
+ else if(view==="player")h=playerDetail(curP);
+ else if(view==="person")h=personDetail(curName);
+ else if(view==="ranks")h=ranksHtml();
+ else if(view==="me")h=meHtml();
+ else if(view==="add")h=admin?addHtml():loginHtml();
+ else if(view==="login")h=admin?`<div class="ptitle">Beheer</div><div class="card pad">Je bent ingelogd als beheerder. Via de + rechtsboven voeg je uitslagen, competities en ${GM[game].u} toe.<button class="go alt" onclick="logout()">Uitloggen</button></div>`:loginHtml();
+ v.innerHTML=h;
+ if(view==="home")wireSlides();
+}
+function pageTitle(t,backFn){return (backFn?`<button class="back" onclick="${backFn}">${IC.back} Terug</button>`:"")+`<div class="ptitle">${t}</div>`}
+
+function homeHtml(){
+ const up=upcoming().slice(0,6),res=allRes().sort((a,b)=>b.t-a.t),last=res[0];window._up=up;
+ let h=`<div class="card"><div class="ch"><div><h2>Volgende wedstrijd</h2><div class="sub" id="nmsub">${up.length?esc(up[0].c.name)+" · "+esc(up[0].g.label):"Nog niets gepland"}</div></div>${up.length>1?`<div class="dots" id="dots">${up.map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}</div>`;
+ if(up.length)h+=`<div class="slides" id="slides">${up.map(x=>`<div class="slide"><div class="vs"><button class="side" onclick="openTeam(${tIdx(x.g.a)})">${crest(x.g.a,68)}<b>${esc(x.g.a)}</b></button><div class="mid">VS<small>${esc(x.g.label)}</small></div><button class="side" onclick="openTeam(${tIdx(x.g.b)})">${crest(x.g.b,68)}<b>${esc(x.g.b)}</b></button></div>${oddsHtml(x.g.a,x.g.b)}</div>`).join("")}</div>`;
+ else h+=`<div class="empty">Zodra er een competitie is, zie je hier de eerstvolgende wedstrijden.</div>`;
+ h+=`<button class="cfoot" onclick="go('program')">Volledig programma ${IC.chev}</button></div>`;
+ if(last){const aw=last.sa>last.sb,bw=last.sb>last.sa;
+  h+=`<div class="card"><div class="ch"><div class="news"><span class="nicon">${IC.whistle}</span><div><h3>Laatste uitslag</h3><div class="sub">${esc(ago(last.t)||(last.kind==="c"?last.c.name:"Vriendschappelijk"))}</div></div></div><button class="round" onclick="go('results')" aria-label="Alle uitslagen">${IC.list}</button></div>
+  <div class="nbody">${aw?`<b>${esc(last.a)}</b>`:esc(last.a)} ${last.sa} – ${last.sb} ${bw?`<b>${esc(last.b)}</b>`:esc(last.b)}${last.kind==="c"?`<div class="inf">${esc(last.c.name)} · ${esc(last.label)}</div>`:""}${last.info?`<div class="inf">💬 ${esc(last.info)}</div>`:""}</div></div>`}
+ const run=comps.filter(c=>!isDone(c));
+ if(run.length)h+=`<div class="sec">Lopende competities</div>`+run.slice(0,3).map(c=>compBig(c)).join("")+(run.length>3?`<button class="go alt" style="margin:0 0 12px" onclick="go('comps')">Alle competities (${comps.length})</button>`:"");
+ h+=`<div class="stats"><div class="stat"><b>${res.length}</b><span>wedstrijden</span></div><div class="stat"><b>${comps.length}</b><span>competities</span></div><div class="stat"><b>${names().length}</b><span>${GM[game].u}</span></div></div>`;
+ if(!names().length)h+=`<div class="empty">Nog geen ${GM[game].u} bij ${GM[game].n}.${admin?" Tik op + rechtsboven om te beginnen.":""}</div>`;
+ return h}
+function wireSlides(){const s=$("#slides");if(!s)return;const dots=document.querySelectorAll("#dots i");
+ s.addEventListener("scroll",()=>{const i=Math.round(s.scrollLeft/s.clientWidth),x=(window._up||[])[i];dots.forEach((d,j)=>d.classList.toggle("on",j===i));if(x)$("#nmsub").textContent=x.c.name+" · "+x.g.label},{passive:true})}
+
+function upRow(x){return `<div class="m c" onclick="openComp('${x.c.id}')"><div class="mr"><div class="t">${crest(x.g.a,32)}<span>${esc(x.g.a)}${tmS(x.g.a)}</span></div><div class="sc o">– : –</div><div class="t r">${crest(x.g.b,32)}<span>${esc(x.g.b)}${tmS(x.g.b)}</span></div></div>${oddsHtml(x.g.a,x.g.b)}<div class="mm"><span><span class="chip">🏆 ${esc(x.c.name)}</span><span class="chip">${esc(x.g.label)}</span></span></div></div>`}
+function programHtml(){
+ const up=upcoming();let h=pageTitle("Programma");
+ if(!up.length)return h+`<div class="card empty">Er staan geen wedstrijden gepland. Maak een competitie aan om een programma te krijgen.</div>`;
+ const by={};up.forEach(x=>(by[x.c.id]=by[x.c.id]||[]).push(x));
+ Object.values(by).forEach(L=>{h+=`<div class="sec">${esc(L[0].c.name)}</div>`+L.map(upRow).join("")});
+ return h}
+function resRow(m,me){
+ const aw=m.sa>m.sb,bw=m.sb>m.sa,k=m.kind==="m",ed=admin&&canWrite;
+ const act=ed?`<span><button class="ic" onclick="${k?`editMatch('${m.id}')`:`openComp('${m.c.id}')`}" aria-label="Bewerken">✎</button><button class="ic" onclick="${k?`delDoc('matches','${m.id}')`:`wipe('${m.c.id}','${m.key}')`}" aria-label="Verwijderen">✕</button></span>`:"";
+ let pill="";if(me){const mine=m.a===me?m.sa:m.sb,their=m.a===me?m.sb:m.sa,r=mine>their?"W":mine<their?"V":"G";pill=`<span class="pill ${r}" title="${r==="W"?"Gewonnen":r==="V"?"Verloren":"Gelijk"}">${r}</span> `}
+ return `<div class="m"><div class="mr"><div class="t ${aw?"w":bw?"l":""}">${crest(m.a,32)}<span>${esc(m.a)}${tmS(m.a,m.ta)}</span></div><div class="sc">${m.sa} – ${m.sb}</div><div class="t r ${bw?"w":aw?"l":""}">${crest(m.b,32)}<span>${esc(m.b)}${tmS(m.b,m.tb)}</span></div></div>${legsLine(m.legs)}
+ <div class="mm"><span>${pill}${k?`<span class="chip">#${m.n}</span>`:`<span class="chip">🏆 ${esc(m.c.name)}</span><span class="chip">${esc(m.label)}</span>`}${m.mode?`<span class="chip">${esc(m.mode)}${m.sub?" · "+esc(m.sub):""}</span>`:""}${k&&m.type?`<span class="chip">${esc(m.type)}</span>`:""}${m.ref?`<span class="chip">🏁 ${esc(m.ref)}</span>`:""}</span>${act}</div>${m.info?`<div class="inf">💬 ${esc(m.info)}</div>`:""}</div>`}
+function resultsHtml(){const L=allRes().sort((x,y)=>y.t-x.t);if(!L.length)return pageTitle("Uitslagen")+`<div class="card empty">Nog geen uitslagen.</div>`;let h=pageTitle("Uitslagen"),last=null;L.forEach(m=>{const d=dayLabel(m.t);if(d!==last){h+=`<div class="dayh">${esc(d)}</div>`;last=d}h+=resRow(m)});return h}
+
+function compCard(c){return compBig(c)}
+function compsHtml(){
+ let h=pageTitle("Competities");
+ if(!comps.length)return h+`<div class="card empty">Nog geen competities bij ${GM[game].n}.${admin?" Tik op + om er een te maken.":" Log in bij Beheer om er een te maken."}</div>`;
+ const a=comps.filter(c=>!isDone(c)),f=comps.filter(isDone);
+ if(a.length)h+=`<div class="sec">Bezig</div>`+a.map(c=>compBig(c)).join("");
+ if(f.length)h+=`<div class="sec">Afgelopen</div>`+f.map(c=>compBig(c)).join("");
+ return h}
+function gameRow(c,g,ko){
+ const sc=(c.scores||{})[g.key],mt=(c.meta||{})[g.key]||{},aw=sc&&sc[0]>sc[1],bw=sc&&sc[1]>sc[0];
+ if(g.bye)return `<div class="m"><div class="inf" style="margin:0">🎟️ ${esc(g.a||g.b)} heeft een bye en gaat door</div></div>`;
+ const edit=admin&&canWrite&&g.a&&g.b;
+ return `<div class="m"><div class="mr"><div class="t ${aw?"w":bw?"l":""}">${g.a?crest(g.a,30):""}<span>${esc(g.a||"…")}${g.a?tmS(g.a,mt.ta):""}</span></div><div class="sc ${sc?"":"o"}">${sc?sc[0]+" – "+sc[1]:"– : –"}</div><div class="t r ${bw?"w":aw?"l":""}">${g.b?crest(g.b,30):""}<span>${esc(g.b||"…")}${g.b?tmS(g.b,mt.tb):""}</span></div></div>
+ ${sc?legsLine(mt.legs):""}
+ ${!sc&&g.a&&g.b?oddsHtml(g.a,g.b):""}
+ ${mt.info&&!edit?`<div class="inf">💬 ${esc(mt.info)}</div>`:""}
+ ${edit?`<div class="mm"><span>${LEGS()>1?`1e <input class="sin" id="a_${g.key}" type="number" min="0" value="${legVal(mt.legs,0,"a")}" aria-label="1e wedstrijd ${esc(g.a)}"> – <input class="sin" id="b_${g.key}" type="number" min="0" value="${legVal(mt.legs,0,"b")}" aria-label="1e wedstrijd ${esc(g.b)}"><br>2e <input class="sin" id="a2_${g.key}" type="number" min="0" value="${legVal(mt.legs,1,"a")}" aria-label="2e wedstrijd ${esc(g.a)}" style="margin-top:6px"> – <input class="sin" id="b2_${g.key}" type="number" min="0" value="${legVal(mt.legs,1,"b")}" aria-label="2e wedstrijd ${esc(g.b)}">`:`<input class="sin" id="a_${g.key}" type="number" min="0"${mxAttr()} value="${sc?sc[0]:""}" aria-label="Score ${esc(g.a)}"> – <input class="sin" id="b_${g.key}" type="number" min="0"${mxAttr()} value="${sc?sc[1]:""}" aria-label="Score ${esc(g.b)}">`}</span><span>${sc?`<button class="ic" onclick="wipe('${c.id}','${g.key}')" aria-label="Uitslag wissen">🗑</button>`:""}<button class="go s" onclick="saveScore('${c.id}','${g.key}',${ko})">Opslaan</button></span></div>${false?`<div class="row" style="margin-top:6px"><input id="ca_${g.key}" list="cl" placeholder="Club ${esc(g.a)}" value="${esc(mt.ta||"")}"><input id="cb_${g.key}" list="cl" placeholder="Club ${esc(g.b)}" value="${esc(mt.tb||"")}"></div>`:""}<input id="i_${g.key}" placeholder="Info (optioneel)" value="${esc(mt.info||"")}" style="margin-top:6px">`:""}</div>`;
+}
+function standTable(c){const rows=standRows(c),P=usesPoints(c)&&duelMode(c),C=usesPoints(c)&&!duelMode(c);return `<div class="card"><div class="tw" style="padding:6px 10px"><table><tr><th></th><th class="n">${Tm()}</th><th>G</th><th>W</th>${P?"<th>GL</th>":""}<th>V</th><th>${U()}</th><th>Saldo</th>${P?"<th>P</th>":""}</tr>`+rows.map((r,i)=>`<tr class="c" onclick="openTeam(${tIdx(r.n)})"><td><span class="rank ${rk(i)}">${i+1}</span></td><td class="n"><span class="t">${crest(r.n,26)}<span>${esc(r.n)}</span></span></td><td>${r.g}</td><td>${r.w}</td>${P?`<td>${r.d}</td>`:""}<td>${r.v}</td><td>${C?r.p:`${r.vo}–${r.te}`}</td><td ${P?"":'class="p"'}>${r.vo-r.te>0?"+":""}${r.vo-r.te}</td>${P?`<td class="p">${r.p}</td>`:""}</tr>`).join("")+`</table></div></div><p class="note">${C?`Punten: winst = 3, gelijk = 1, verlies = 0. Gesorteerd op punten, daarna saldo.`:P?`Per duel (${c.x||1}× tegen dezelfde speler) telt de totaalstand: winst = 3 punten, gelijk = 1, verlies = 0. G, W, GL en V tellen afgeronde duels. Bij gelijke punten telt het doelsaldo.`:`Gesorteerd op winsten, daarna ${U().toLowerCase()}saldo`}</p>`}
+function compDetail(c){
+ const g=cg(c),P=pNums(c),KO=c.type!=="league",ad=admin&&canWrite;
+ let h=`<button class="back" onclick="goBack()">${IC.back} Terug</button>`;
+ h+=`<div class="card chead" style="--gc:${GM[g].c}"><div class="cc-top"><span class="gchip">${GM[g].e} ${GM[g].n}</span><span>${isDone(c)?"Afgelopen 🏁":"Bezig"}</span></div><h2 class="chn">${esc(c.name)}</h2><div class="chiprow"><span class="chip">${KO?"Knock-out":"Iedereen tegen elkaar"+(c.x>1?" · "+c.x+"×":"")}</span><span class="chip">${modeChip(c)}</span>${usesPoints(c)?`<span class="chip">Winst 3 · gelijk 1</span>`:""}<span class="chip">${c.teams.length} spelers</span></div><div class="prog" aria-hidden="true"><i style="width:${P.pct}%"></i></div><div class="cc-foot"><span>${P.d} van ${P.t} wedstrijden gespeeld</span><span>${esc(leaderLine(c))}</span></div></div>`;
+ if(KO){const k=koRounds(c);if(k.champ)h+=`<div class="win">🏆 ${esc(k.champ)} wint ${esc(c.name)}!</div>`}
+ if(c.ranked){if(isDone(c)){const f=finalPlaces(c)||[];h+=`<div class="sec">Eindstand en ranks 🏁</div><div class="card"><div class="tw" style="padding:6px 10px"><table><tr><th></th><th class="n">${Tm()}</th><th>Rank</th></tr>`+f.map(x=>`<tr class="c" onclick="openPerson(${jsq(x.name)})"><td><span class="rank ${rk(x.place-1)}">${x.place}</span></td><td class="n"><span class="t">${crest(x.name,26)}<span>${esc(x.name)}</span></span></td><td>${rankBadge(placeRank(x.place))}</td></tr>`).join("")+`</table></div></div>`}
+  else h+=`<div class="card pad inf" style="margin-top:0">⭐ Telt mee voor de ranks. Als alle wedstrijden gespeeld zijn, krijgt iedereen automatisch een rank op basis van de eindplek.</div>`}
+ const tabs=KO?[["schema","Schema"],["uitslagen","Uitslagen"]]:[["stand","Stand"],["wedstrijden","Wedstrijden"],["uitslagen","Uitslagen"]];
+ if(!tabs.some(t=>t[0]===compTab))compTab=tabs[0][0];
+ h+=`<div class="seg" role="tablist" style="margin-top:4px">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${compTab===k}" class="${compTab===k?"sel":""}" onclick="compTab='${k}';render()">${l}</button>`).join("")}</div>`;
+ const rounds=KO?koRounds(c).rounds:leagueFix(c),played=gm=>!!(c.scores||{})[gm.key];
+ if(compTab==="stand"){h+=standTable(c);if(usesPoints(c)&&duelMode(c))h+=duelsHtml(c)}
+ else if(compTab==="schema")rounds.forEach(r=>{h+=`<div class="sec">${r.label}</div>`+r.games.map(gm=>gameRow(c,gm,true)).join("")});
+ else{const open=compTab==="wedstrijden";let any=false;
+  rounds.forEach(r=>{const L=r.games.filter(gm=>gm.a&&gm.b&&!gm.bye&&played(gm)!==open);if(!L.length)return;any=true;h+=`<div class="sec">${r.label}</div>`+L.map(gm=>gameRow(c,gm,KO)).join("")});
+  if(!any)h+=`<div class="card empty">${open?"Alle wedstrijden zijn gespeeld.":"Nog geen uitslagen."}</div>`}
+ if(ad)h+=`<div class="acts"><button class="ic" onclick="editC='${c.id}';view='add';render();scrollTop()">✎ Bewerk competitie</button><button class="ic" onclick="delDoc('comps','${c.id}')">🗑 Verwijder competitie</button></div>`;
+ return h}
+function gameGrid(){
+ const N=names(),r=rec(allRes());
+ return N.length?`<div class="tg">`+N.map((n,i)=>{const s=r[n]||{g:0,w:0};return `<button class="tc" onclick="openTeam(${i})">${crest(n,60)}<b>${esc(n)}</b><span>${s.g} gespeeld · ${s.w} gewonnen</span><span>⭐ ${rating(n)}</span>${rankBadge(rankOf(game,n))}</button>`}).join("")+`</div>`:`<div class="card empty">Nog geen ${GM[game].u}.</div>`}
+// Teams: altijd alle teams, bij elk spel hetzelfde
+function teamsHtml(){
+ if(!isP())return pageTitle("Teams")+gameGrid();
+ const N=teamList();
+ return pageTitle("Teams")+(N.length?`<div class="tg">`+N.map(n=>{const t=TM[n],pc=teamPlayers(t).length;return `<button class="tc" onclick="openClub(${JSON.stringify(n).replace(/"/g,"&quot;")})">${tcrest(n,60)}<b>${esc(n)}</b><span>${pc} speler${pc===1?"":"s"}</span>${t&&t.founder&&PM[t.founder]?`<span>👑 ${esc(PM[t.founder].name)}</span>`:""}</button>`}).join("")+`</div>`:`<div class="card empty">Nog geen teams.</div>`)}
+// Spelers: bij FIFA/Clash met hun uitslagen in dat spel, anders alle spelers met hun team
+function playersHtml(){
+ if(isP())return pageTitle("Spelers")+gameGrid();
+ const L=allPlayers();
+ return pageTitle("Spelers")+(L.length?`<div class="tg">`+L.map(x=>`<button class="tc" ${x.id?`onclick="openPlayer('${x.id}')"`:"disabled"}>${pcrest(x,60)}<b>${esc(x.name)}</b><span>${x.id?esc(tsub(teamsOf(x.id).map(t=>t.name))||"Geen team"):""}</span></button>`).join("")+`</div>`:`<div class="card empty">Nog geen spelers.</div>`)}
+function openClub(n){if(!TM[n]&&!names().includes(n))return;pushNav();teamName=n;view="team";closeDrawer();render();scrollTop()}
+function koStatus(c,n){const k=koRounds(c);if(k.champ===n)return "🏆 Kampioen";for(const rd of k.rounds)for(const g of rd.games)if(g.w&&(g.a===n||g.b===n)&&g.w!==n)return "Uitgeschakeld in "+rd.label.toLowerCase();return k.champ?"":"Nog in de race"}
+function teamDetail(n){
+ const T=teams.find(t=>t.name===n),club=!!T&&!PN[pkey(n)],mem=club?new Set(teamPlayers(T).map(p=>pkey(p.name))):new Set(),isMe=x=>x===n||mem.has(pkey(x)),
+  res=allRes().filter(m=>isMe(m.a)||isMe(m.b)).sort((a,b)=>b.t-a.t),up=upcoming().filter(x=>isMe(x.g.a)||isMe(x.g.b)),cs=comps.filter(c=>c.teams.some(isMe)),r={g:res.length,w:0,v:0,d:0};
+ res.forEach(m=>{const a=isMe(m.a),b=isMe(m.b);if(a&&b)return;const f=a?m.sa:m.sb,t=a?m.sb:m.sa;if(f>t)r.w++;else if(f<t)r.v++;else r.d++});
+ const who=c=>c.teams.find(isMe)||n;
+ let h=`<button class="back" onclick="goBack()">${IC.back} Terug</button>`;
+ const FD=T&&T.founder&&PM[T.founder];
+ h+=`<div class="card thero">${crest(n,92)}<h2>${esc(n)}</h2>${FD||(T&&T.founded)?`<div class="sub">${FD?`👑 Leider <button class="tchip" style="vertical-align:middle;margin-left:2px" onclick="openPlayer('${FD.id}')">${pcrest(FD,22)}${esc(FD.name)}</button>`:"Opgericht"}${T.founded?` · opgericht op ${esc(fmtDate(T.founded))}`:""}</div>`:""}<div class="rg" style="justify-content:center">${club?`<span class="bd">${mem.size} speler${mem.size===1?"":"s"}</span>`:`${rankBadge(rankOf(game,n))}<span class="bd">⭐ rating ${rating(n)}</span>`}</div></div>`;
+ h+=`<div class="stats"><div class="stat"><b>${r.g}</b><span>gespeeld</span></div><div class="stat"><b>${r.w}</b><span>gewonnen</span></div><div class="stat"><b>${r.v}</b><span>verloren</span></div></div>`;
+ const PL=T?teamPlayers(T):[],PR=isP()&&PN[pkey(n)];
+ if(PR){const TT=teamsOf(PR.id);if(TT.length)h+=`<div class="sec">Zit in teams</div><div class="list">${TT.map(teamLink).join("")}</div>`}
+ if(PL.length)h+=`<div class="sec">Selectie</div><div class="card"><div class="squad">${PL.map(p=>`<button class="sq" ${p.id?`onclick="openPlayer('${p.id}')"`:"disabled"}>${pav(p)}${esc(p.name)}${T&&p.id&&T.founder===p.id?`<small>👑 Leider</small>`:""}</button>`).join("")}</div></div>`;
+ h+=`<div class="sec">Competities</div>`+(cs.length?`<div class="list">`+cs.map(c=>{let st;if(c.type==="league"){const rows=standRows(c),i=rows.findIndex(x=>x.n===who(c));st=`Plek ${i+1} van ${rows.length}`}else st=koStatus(c,who(c));return `<button class="li" onclick="openComp('${c.id}')">${c.type==="league"?`<span class="rank ${rk(standRows(c).findIndex(x=>x.n===who(c)))}">${standRows(c).findIndex(x=>x.n===who(c))+1}</span>`:`<span class="nicon" style="width:auto">${IC.trophy}</span>`}<div><b>${esc(c.name)}</b><span>${club?esc(who(c))+" · ":""}${c.type==="league"?"Iedereen tegen elkaar":"Knock-out"}${st?" · "+st:""}</span></div>${IC.chev}</button>`}).join("")+`</div>`:`<div class="card empty">Doet nog niet mee aan een competitie.</div>`);
+ h+=`<div class="sec">Volgende wedstrijden</div>`+(up.length?up.map(upRow).join(""):`<div class="card empty">Geen wedstrijden gepland.</div>`);
+ h+=`<div class="sec">Uitslagen</div>`+(res.length?res.map(m=>resRow(m,isMe(m.a)&&!isMe(m.b)?m.a:isMe(m.b)&&!isMe(m.a)?m.b:null)).join(""):`<div class="card empty">Nog geen wedstrijden gespeeld.</div>`);
+ if(game==="fifa"&&res.length){const C={};res.forEach(m=>{const me=m.a===n,f=me?m.sa:m.sb,t=me?m.sb:m.sa,club=(me?m.ta:m.tb)||"Onbekende club",c=C[club]=C[club]||{club,g:0,w:0,v:0,vo:0,te:0};c.g++;c.vo+=f;c.te+=t;if(f>t)c.w++;else if(f<t)c.v++});
+  h+=`<div class="sec">Gespeeld met</div><div class="card"><div class="tw" style="padding:6px 10px"><table><tr><th class="n">Club</th><th>G</th><th>W</th><th>V</th><th>${U()}</th></tr>`+Object.values(C).sort((x,y)=>y.g-x.g||y.w-x.w).map(c=>`<tr><td class="n">${esc(c.club)}</td><td>${c.g}</td><td>${c.w}</td><td>${c.v}</td><td>${c.vo}–${c.te}</td></tr>`).join("")+`</table></div></div>`}
+ if(admin&&canWrite)h+=`<div class="acts">${TM[n]?`<button class="ic" onclick="editTeamDraft(${teamList().indexOf(n)})">✎ Bewerk team</button>`:`<button class="ic" onclick="editPlayerByName(${tIdx(n)})">✎ Bewerk speler</button>`}<button class="ic" onclick="${TM[n]&&isP()?`delClub(${teamList().indexOf(n)})`:`delTeam(${tIdx(n)})`}">🗑 Verwijder ${TM[n]?"team":Tm().toLowerCase()}</button></div>`;
+ return h}
+
+function bestTeamRank(g,pid){let b=null;teamsOf(pid).forEach(t=>{const r=rankOf(g,t.name);if(r!==null&&(b===null||r>b))b=r});return b}
+function pRank(g,x){return isTeamGame(g)?(x.id?bestTeamRank(g,x.id):null):rankOf(g,x.name)}
+function clubLogos(pid){return teamsOf(pid).map(t=>t.logo?`<img class="club" src="${t.logo}" alt="${esc(t.name)}" title="${esc(t.name)}">`:`<span class="crest" title="${esc(t.name)}" style="--h:${hue(t.name)};--s:24px">${esc(ini(t.name))}</span>`).join("")}
+function ranksHtml(){
+ const L=RAWP.filter(x=>x.name).map(x=>x),seen=new Set(L.map(x=>pkey(x.name)));
+ ["fifa","clash"].forEach(g=>{const f=x=>(x.game||"zonderbord")===g,add=n=>{if(n&&!seen.has(pkey(n))){seen.add(pkey(n));L.push({id:null,name:n,photo:""})}};
+  RAWM.filter(f).forEach(m=>{add(m.a);add(m.b)});RAWC.filter(f).forEach(c=>(c.teams||[]).forEach(add))});
+ const G=Object.keys(GM),sc=x=>G.reduce((a,g)=>{const r=pRank(g,x);return a+(r===null?0:r+1)},0);
+ L.sort((a,b)=>sc(b)-sc(a)||a.name.localeCompare(b.name));
+ const TG=G.filter(isTeamGame),T=RAWT.filter(t=>t.name),tsc=t=>TG.reduce((a,g)=>{const r=rankOf(g,t.name);return a+(r===null?0:r+1)},0);
+ T.sort((a,b)=>tsc(b)-tsc(a)||a.name.localeCompare(b.name));
+ let h=pageTitle("Ranks")+`<div class="card pad"><b>Hoe werkt het?</b><div class="inf">Als een competitie "Voor ranks" afgelopen is, krijgt iedereen een rank op basis van de eindplek: 1e = 💎 Diamond, 2e = 🥇 Goud, 3e = 🥈 Zilver, de rest = 🥉 Brons. De nieuwste afgeronde competitie telt. Oefencompetities tellen niet mee. Bij Zonderbord en Voetvolley krijg je de rank van je team. Nog niets gespeeld? Dan ben je 🌱 Rookie.</div></div>`;
+ h+=`<div class="sec">Spelers</div>`+(L.length?L.map(x=>`<div class="m c" onclick="openPerson(${jsq(x.name)})"><div class="rhead">${pcrest(x,40)}<div class="rn"><b>${esc(x.name)}</b>${x.id?clubLogos(x.id):""}</div></div><div class="rg">${G.map(g=>`<span class="rc">${GM[g].e} ${rankBadge(pRank(g,x))}</span>`).join("")}</div></div>`).join(""):`<div class="card empty">Nog geen spelers.</div>`);
+ if(T.length&&TG.length)h+=`<div class="sec">Teams</div>`+T.map(t=>`<div class="m c" onclick="openClub(${JSON.stringify(t.name).replace(/"/g,"&quot;")})"><div class="rhead">${t.logo?`<img class="crest lg" src="${t.logo}" alt="" style="--s:40px">`:`<span class="crest" style="--h:${hue(t.name)};--s:40px">${esc(ini(t.name))}</span>`}<div class="rn"><b>${esc(t.name)}</b></div></div><div class="rg">${TG.map(g=>`<span class="rc">${GM[g].e} ${rankBadge(rankOf(g,t.name))}</span>`).join("")}</div></div>`).join("");
+ return h}
+
+// ---- beheer: inloggen met code
+function loginHtml(){return pageTitle("Beheer")+(ME?"":`<div class="card pad"><b>Speler?</b><div class="inf">Je eigen speler en team maak je bij <a href="#" onclick="go('me');return false">Mijn profiel</a>.</div></div>`)+`<div class="form"><label for="code">Beheercode</label><input id="code" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')tryCode()"><button class="go" onclick="tryCode()">Inloggen</button><p class="note">Alleen nodig om uitslagen in te voeren. Kijken kan iedereen.</p></div>`}
+async function tryCode(){
+ const c=$("#code").value;if(!c)return;
+ if(!db){alert("Nog niet verbonden met de database");return}
+ try{await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,c);alert("Beheer staat aan");go("home")}
+ catch(e){alert(e&&e.code==="auth/too-many-requests"?"Te vaak geprobeerd, wacht even":"Verkeerde code")}
+}
+async function googleLogin(){
+ const fb=window.firebase;if(!fb||!fb.apps.length){alert("Nog niet verbonden met de database");return}
+ const prov=new fb.auth.GoogleAuthProvider();
+ try{await fb.auth().signInWithPopup(prov)}
+ catch(e){if(e&&["auth/popup-blocked","auth/operation-not-supported-in-this-environment","auth/cancelled-popup-request"].includes(e.code)){try{await fb.auth().signInWithRedirect(prov)}catch(x){alert("Inloggen lukt niet")}}
+  else if(e&&e.code==="auth/unauthorized-domain")alert("Dit adres staat nog niet bij Firebase: voeg het toe bij Authentication → Settings → Authorized domains");
+  else if(e&&e.code==="auth/operation-not-allowed")alert("Inloggen met Google staat nog uit in Firebase");
+  else if(!(e&&e.code==="auth/popup-closed-by-user"))alert("Inloggen lukt niet")}
+}
+function logout(){if(window.firebase&&firebase.apps.length)firebase.auth().signOut();alert("Uitgelogd");go("home")}
+
+const HASHLINK=false; // in Claude: koppelen via een versleutelde vingerafdruk van het e-mailadres
+async function hashEmail(e){try{const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("zb:"+normEmail(e)));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}catch(x){return ""}}
+function normEmail(e){return String(e||"").trim().toLowerCase()}
+function emailsOn(){return !!window.firebase&&admin}
+let unsubEmails=null;
+function watchEmails(on){if(unsubEmails){unsubEmails();unsubEmails=null}EMAIL={};EMBY={};if(!on||!db)return;
+ unsubEmails=db.collection("emails").onSnapshot(s=>{EMAIL={};EMBY={};s.docs.forEach(d=>{const p=d.data().pid;if(p){EMAIL[d.id]=p;EMBY[p]=d.id}});render()},()=>{})}
+async function linkMe(u){
+ ME={uid:u.uid,name:u.displayName||"",email:normEmail(u.email),pid:null};
+ if(ME.email&&u.emailVerified!==false){try{const d=await db.collection("emails").doc(ME.email).get();if(d.exists&&d.data().pid)ME.pid=d.data().pid}catch(e){}}
+ render()}
+async function myPut(col,id,data){
+ if(!db||!ME){alert("Log eerst in");return false}
+ try{await db.collection(col).doc(id).set(data);return true}catch(e){alert(e&&e.code==="permission-denied"?"Opslaan mislukt: geen rechten":"Opslaan mislukt");return false}
+}
+async function put(col,id,data){
+ if(["matches","comps","tourns"].includes(col))data={game,...data};
+ if(!db||!canWrite){alert("Log eerst in met de beheercode");return false}
+ try{await db.collection(col).doc(id).set(data);return true}catch(e){alert(e&&e.code==="permission-denied"?"Opslaan mislukt: geen schrijfrechten":"Opslaan mislukt");return false}
+}
+
+// ---- formulieren
+function clDl(){return `<datalist id="cl">${[...new Set(allRes().flatMap(m=>[m.ta,m.tb]).filter(Boolean))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist>`}
+function clubRow(v){return `<div class="row"><div><label for="ta">Club van speler 1</label><input id="ta" list="cl" placeholder="bijv. Real Madrid" value="${esc(v.ta||"")}"></div><div><label for="tb">Club van speler 2</label><input id="tb" list="cl" placeholder="bijv. Arsenal" value="${esc(v.tb||"")}"></div></div>`}
+function editMatch(id){editM=id;view="add";render();scrollTop()}
+function scoreInputs(v){
+ if(LEGS()>1)return [0,1].map(i=>`<div class="row"><div><label for="sa${i?2:""}">${i+1}e wedstrijd · ${U()} 1</label><input id="sa${i?2:""}" type="number" min="0" value="${legVal(v.legs,i,"a")||0}"></div><div><label for="sb${i?2:""}">${i+1}e wedstrijd · ${U()} 2</label><input id="sb${i?2:""}" type="number" min="0" value="${legVal(v.legs,i,"b")||0}"></div></div>`).join("")+`<p class="inf">Bij FIFA speel je 2 wedstrijden. Wie over de twee samen de meeste goals heeft, wint.</p>`;
+ return `<div class="row"><div><label for="sa">${U()} 1</label><input id="sa" type="number" min="0"${mxAttr()} value="${v.sa||0}"></div><div><label for="sb">${U()} 2</label><input id="sb" type="number" min="0"${mxAttr()} value="${v.sb||0}"></div></div>`}
+function resFields(cid,m){
+ const v=m||{},c=comps.find(x=>x.id===cid);let h="";
+ if(c){const gs=allGames(c).filter(g=>!(c.scores||{})[g.key]);
+  h+=gs.length?`<label for="rg">Welke wedstrijd?</label><select id="rg">${gs.map(g=>`<option value="${g.key}">${esc(g.label)}: ${esc(g.a)} – ${esc(g.b)}</option>`).join("")}</select>${scoreInputs({})}`:`<div class="empty">Geen open wedstrijden in deze competitie.</div>`;
+ }else h+=`<div class="row"><div><label for="a">${Tm()} 1</label><input id="a" list="pl" value="${esc(v.a||"")}"></div><div><label for="b">${Tm()} 2</label><input id="b" list="pl" value="${esc(v.b||"")}"></div></div>${scoreInputs(v)}`;
+ return h+""+`<div class="row" ${game!=="zonderbord"?"hidden":""}><div><label for="mode">Spelvorm</label><input id="mode" value="${esc(m?v.mode||"":(game!=="zonderbord"?"":"Game mode"))}"></div><div><label for="sub">Variant</label><input id="sub" value="${esc(m?v.sub||"":(game!=="zonderbord"?"":"Random"))}"></div></div><label for="ref">Scheidsrechter</label><input id="ref" placeholder="leeg = geen" value="${esc(v.ref||"")}"><label for="info">Extra info</label><input id="info" placeholder="bijv. spannende afloop" value="${esc(v.info||"")}">`;
+}
+function rcChange(){$("#rf").innerHTML=resFields($("#rc").value,null)}
+function resForm(m){
+ const o=`<option value="">Vriendschappelijk (geen competitie)</option>`+comps.filter(c=>!isDone(c)).map(c=>`<option value="${c.id}">${esc(c.name)} (${modeChip(c)})</option>`).join("");
+ return `<div class="sec">${m?"Uitslag bewerken":"Nieuwe uitslag"}</div><div class="form">${m?"":`<label for="rc">Waar hoort deze uitslag bij?</label><select id="rc" onchange="rcChange()">${o}</select>`}<div id="rf">${resFields("",m)}</div><button class="go" onclick="saveResult()">Opslaan</button>${m?`<button class="go alt" onclick="editM=null;go('results')">Annuleren</button>`:""}</div>`;
+}
+function setMode(r){$("#cmode").value=r?"1":"";$("#mOef").className=r?"":"sel";$("#mRank").className=r?"sel":"";$("#mOef").setAttribute("aria-checked",!r);$("#mRank").setAttribute("aria-checked",r);$("#cmodeInf").textContent=r?"De eindstand bepaalt de ranks.":"Telt niet mee voor de ranks."}
+function compForm(c){
+ const sel=c?c.teams:[],all=[...new Set([...sel,...names()])];
+ return `<div class="sec">${c?"Competitie bewerken":"Nieuwe competitie"}</div><div class="form"><label for="cn">Naam</label><input id="cn" value="${esc(c?c.name:"")}"><label>Telt mee voor ranks?</label><div class="seg" style="margin:0;box-shadow:none;background:var(--bg)" role="radiogroup"><button type="button" role="radio" id="mOef" aria-checked="${!(c&&c.ranked)}" class="${c&&c.ranked?"":"sel"}" onclick="setMode(false)">Oefen</button><button type="button" role="radio" id="mRank" aria-checked="${!!(c&&c.ranked)}" class="${c&&c.ranked?"sel":""}" onclick="setMode(true)">⭐ Voor ranks</button></div><input type="hidden" id="cmode" value="${c&&c.ranked?"1":""}"><p class="inf" id="cmodeInf">${c&&c.ranked?"De eindstand bepaalt de ranks.":"Telt niet mee voor de ranks."}</p>
+ <div class="row"><div><label for="ct">Soort</label><select id="ct" onchange="$('#cxw').hidden=this.value!=='league'"><option value="league">Iedereen tegen elkaar</option><option value="knockout" ${c&&c.type==="knockout"?"selected":""}>Knock-out (bracket)</option></select></div><div id="cxw" ${c&&c.type==="knockout"?"hidden":""}><label for="cx">Keer tegen elkaar</label><select id="cx">${[1,2,3,4].map(n=>`<option ${(c?c.x===n:game==="fifa"&&n===2)?"selected":""}>${n}</option>`).join("")}</select></div></div>
+ <label>${isP()?"Spelers":"Teams"} (minimaal 2)</label><div class="pick">${all.map(n=>`<label><input type="checkbox" class="cp" value="${esc(n)}" ${sel.includes(n)?"checked":""}>${esc(n)}</label>`).join("")||`<span class="inf">Nog geen ${GM[game].u}, vul ze hieronder in.</span>`}</div>
+ <label for="ce">Extra ${isP()?"spelers":"teams"} (komma gescheiden)</label><input id="ce">
+ ${c?`<p class="note" style="text-align:left">Verander je soort, aantal of ${GM[game].u}? Dan worden de ingevulde uitslagen van deze competitie gewist.</p>`:""}
+ <button class="go" onclick="saveComp()">${c?"Opslaan":"Competitie maken"}</button>${c?`<button class="go alt" onclick="editC=null;go('comps')">Annuleren</button>`:""}</div>`;
+}
+function addHtml(){
+ const dl=clDl()+`<datalist id="pl">${names().map(p=>`<option value="${esc(p)}">`).join("")}</datalist>`;
+ const c=editC&&comps.find(x=>x.id===editC);if(c)return pageTitle("Bewerken")+dl+compForm(c);
+ const m=editM&&matches.find(x=>x.id===editM);if(m)return pageTitle("Bewerken")+dl+resForm(m);
+ const tabs=isP()?[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"]]:[["res","Uitslag"],["comp","Competitie"],["team","Teams"],["players","Spelers"]];
+ if(addTab==="tourn")addTab="comp";
+ 
+ let h=pageTitle("Beheer")+`<div class="seg" role="tablist">${tabs.map(([k,l])=>`<button role="tab" aria-selected="${addTab===k}" class="${addTab===k?"sel":""}" onclick="addTab='${k}';draft=null;pdraft=null;render()">${l}</button>`).join("")}</div>`+dl;
+ if(addTab==="res")h+=resForm(null);
+ else if(addTab==="comp")h+=compForm(null);
+ else if(addTab==="team")h+=teamsManage();
+ else h+=playersManage();
+ return h;
+}
+
+// balk onderin: altijd spelers, met hun team eronder
+function dk(on,click,img,name,sub){return `<button class="dk ${on?"on":""}" onclick="${click}" title="${esc(name)}">${img}<span class="nm">${esc(name)}</span>${sub?`<small>${esc(sub)}</small>`:""}</button>`}
+function pcrest(p,s){return p.photo?`<img class="crest ph" src="${p.photo}" alt="" style="--s:${s}px">`:`<span class="crest" style="--h:${hue(p.name)};--s:${s}px" aria-hidden="true">${esc(ini(p.name))}</span>`}
+function tmS(n,ov){if(ov)return `<small>${esc(ov)}</small>`;const p=PN[pkey(n)];const s=p?tsub(teamsOf(p.id).map(t=>t.name)):"";return s?`<small>${esc(s)}</small>`:""}
+function tsub(L){return L.length?L[0]+(L.length>1?" +"+(L.length-1):""):""}
+function dockItems(){
+ const N=names();
+ const mine=ME&&PM[myPid()],meK=mine?pkey(mine.name):null;
+ const meBtn=mine?[dk(view==="person"&&pkey(curName)===meK,`openPerson(${jsq(mine.name)})`,pcrest(mine,48),"Jij",mine.name)]:[];
+ if(isP())return meBtn.concat(N.filter(n=>pkey(n)!==meK).map(n=>{const i=N.indexOf(n),pr=PN[pkey(n)];return dk(view==="person"&&pkey(curName)===pkey(n),`openTeam(${i})`,crest(n,48),n,pr?tsub(teamsOf(pr.id).map(t=>t.name)):"")}));
+ const P=RAWP.filter(x=>x.name).sort((a,b)=>a.name.localeCompare(b.name));
+ if(!P.length)return N.map((n,i)=>dk(view==="team"&&teamName===n,`openTeam(${i})`,crest(n,48),n,""));
+ return P.map(p=>dk(view==="player"&&curP===p.id,`openPlayer('${p.id}')`,pcrest(p,48),p.name,tsub(teamsOf(p.id).map(t=>t.name))));
+}
+
+// ---- spelers (los, voor alle spellen) en teams (groepen spelers)
+function pkey(n){return String(n||"").trim().toLowerCase()}
+function pav(p,cls){return `<span class="pav ${cls||""}">${p.photo?`<img src="${p.photo}" alt="">`:esc(ini(p.name))}</span>`}
+function teamGame(t){return t.game||"zonderbord"}
+function isTeamGame(g){return false}
+function teamPlayers(t){if(!t)return[];let a=Array.isArray(t.players)?t.players:[];
+ if(!a.length&&t.members)a=t.members.split(/\s*(?:&|,|\ben\b)\s*/).filter(Boolean).map(n=>({name:n}));
+ return a.map(e=>typeof e==="string"?PM[e]:(PN[pkey(e.name)]||{id:null,name:e.name,photo:e.photo||""})).filter(Boolean)}
+function teamsOf(pid){const pl=PM[pid];if(!pl)return[];return RAWT.filter(t=>t.name&&teamPlayers(t).some(x=>x.id===pid||(!x.id&&pkey(x.name)===pkey(pl.name))))}
+function teamLink(t){return `<button class="li" onclick="openClub(${JSON.stringify(t.name).replace(/"/g,"&quot;")})">${t.logo?`<img class="crest lg" src="${t.logo}" alt="" style="--s:40px">`:`<span class="crest" style="--h:${hue(t.name)};--s:40px">${esc(ini(t.name))}</span>`}<div><b>${esc(t.name)}</b><span>${teamPlayers(t).length} speler${teamPlayers(t).length===1?"":"s"}</span></div>${IC.chev}</button>`}
+function openTeamIn(g,n){if(g!==game){game=g;try{localStorage.setItem("zb-game",g)}catch(e){}applyGame()}const i=names().indexOf(n);if(i<0){go("home");return}openTeam(i)}
+function openPlayer(pid){if(PM[pid])return openPerson(PM[pid].name);if(!PM[pid])return;prevTeam=view==="team"&&teamName?{g:game,n:teamName}:null;curP=pid;view="player";closeDrawer();render();scrollTop()}
+function playerBack(){if(prevTeam)openTeamIn(prevTeam.g,prevTeam.n);else go("home")}
+function playerDetail(pid){
+ const pl=PM[pid];if(!pl)return pageTitle("Speler niet gevonden","go('home')");
+ let h=`<button class="back" onclick="playerBack()">${IC.back} Terug</button><div class="card thero">${pav(pl,"xl")}<h2>${esc(pl.name)}</h2></div>`;
+ const TT=teamsOf(pid);
+ h+=`<div class="sec">Teams</div>`+(TT.length?`<div class="list">${TT.map(teamLink).join("")}</div>`:`<div class="card empty">Zit nog niet in een team.</div>`);
+
+ if(admin&&canWrite)h+=`<div class="acts"><button class="ic" onclick="editPlayerDraft('${pid}')">✎ Bewerk speler</button><button class="ic" onclick="delPlayer('${pid}')">🗑 Verwijder speler</button></div>`;
+ return h}
+
+// teams beheren (alleen bij teamspellen)
+function teamList(){return isP()?[...new Set(RAWT.filter(t=>t.name).map(t=>t.name))].sort((a,b)=>a.localeCompare(b)):names()}
+function tcrest(n,s){const t=TM[n];return t&&t.logo?`<img class="crest lg" src="${t.logo}" alt="" style="--s:${s}px">`:`<span class="crest" style="--h:${hue(n)};--s:${s}px" aria-hidden="true">${esc(ini(n))}</span>`}
+async function delClub(i){
+ const n=teamList()[i];if(!n||!admin||!canWrite)return;
+ if(pend!=="k"+n){pend="k"+n;alert(`Tik nog een keer: team ${n} verdwijnt bij alle spellen`);setTimeout(()=>{pend=null},5000);return}
+ pend=null;try{for(const t of RAWT.filter(t=>t.name===n))await db.collection("teams").doc(t.id).delete();alert("Verwijderd")}catch(e){alert("Verwijderen mislukt")}
+}
+function teamsManage(){
+ if(draft)return teamEditor();
+ const N=teamList();
+ return `<button class="go" style="margin:0 0 12px" onclick="newTeamDraft()">+ Nieuw team</button>`+(N.length?`<div class="list">${N.map((n,i)=>{const t=TM[n],pc=teamPlayers(t).length;return `<div class="li" style="cursor:default">${tcrest(n,44)}<div><b>${esc(n)}</b><span>${pc+(pc===1?" speler":" spelers")+(t&&t.logo?" · met logo":"")}</span></div><button class="ic" onclick="editTeamDraft(${i})">✎ Bewerk</button><button class="ic" onclick="${isP()?`delClub(${i})`:`delTeam(${i})`}" aria-label="Verwijder ${esc(n)}">🗑</button></div>`}).join("")}</div>`:`<div class="card empty">Nog geen teams.</div>`);
+}
+function newTeamDraft(){draft={id:null,name:"",oldName:"",logo:"",ids:[],newP:[],photos:{},founder:"",founded:"",isNew:true};render();setTimeout(()=>{const e=$("#dn");e&&e.focus()},30)}
+function editTeamDraft(i){
+ const n=teamList()[i];if(!n)return;const t=TM[n],ids=[],newP=[];
+ teamPlayers(t).forEach((p,j)=>{if(p.id)ids.push(p.id);else newP.push({tid:"n:"+Date.now()+j,name:p.name,photo:p.photo||""})});
+ draft={id:t?t.id:null,name:n,oldName:n,logo:t&&t.logo||"",ids,newP,photos:{},founder:t&&t.founder&&ids.includes(t.founder)?t.founder:"",founded:t&&t.founded||"",isNew:false};
+ view="add";addTab="team";pdraft=null;closeDrawer();render();scrollTop();
+}
+function teamEditor(){
+ const d=draft,rows=[...d.ids.filter(i=>PM[i]).map(i=>({key:i,name:PM[i].name,photo:d.photos[i]||PM[i].photo||""})),...d.newP.map(x=>({key:x.tid,name:x.name,photo:x.photo,nw:1}))];
+ const free=RAWP.filter(x=>!d.ids.includes(x.id)).sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="form"><div class="ted">
+ <button class="logoPick" onclick="pick({k:'logo'})" aria-label="Logo kiezen">${d.logo?`<img src="${d.logo}" alt="">`:`<span class="lp-empty">${IC.camera}<span>Logo</span></span>`}</button>
+ <div style="flex:1;min-width:0"><label for="dn" style="margin-top:0">Teamnaam</label><input id="dn" value="${esc(d.name)}" oninput="draft.name=this.value">
+ ${d.logo?`<button class="ic" style="margin:10px 0 0" onclick="draft.logo='';render()">Logo weghalen</button>`:`<p class="inf">Tik op het vak om een logo te kiezen</p>`}</div></div>
+ <div class="row"><div><label for="df">👑 Leider</label><select id="df" onchange="draft.founder=this.value"><option value="">Geen</option>${rows.map(r=>`<option value="${r.key}" ${d.founder===r.key?"selected":""}>${esc(r.name)}</option>`).join("")}</select></div><div><label for="dd">Opgericht op</label><input id="dd" type="date" value="${esc(d.founded)}" onchange="draft.founded=this.value"></div></div>
+ ${rows.length?"":`<p class="inf">Voeg eerst spelers toe om een leider te kiezen.</p>`}
+ <label>Spelers in dit team (${rows.length})</label><div class="plist">${rows.map(r=>`<div class="pl"><button class="pav" onclick="pick({k:'p',id:'${r.key}'})" aria-label="Foto kiezen voor ${esc(r.name)}">${r.photo?`<img src="${r.photo}" alt="">`:esc(ini(r.name))}</button><span>${d.founder===r.key?"👑 ":""}${esc(r.name)}${r.nw?"<small>nieuwe speler</small>":""}</span><button class="ic" onclick="rmFromTeam('${r.key}')" aria-label="${esc(r.name)} uit het team halen">✕</button></div>`).join("")||`<p class="inf" style="margin:0">Nog geen spelers in dit team</p>`}</div>
+ ${free.length?`<label for="ps">Bestaande speler toevoegen</label><div class="row"><select id="ps">${free.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select><button class="go s" style="flex:0 0 auto" onclick="addExisting()">+ Toevoegen</button></div>`:""}
+ <label for="np">Nieuwe speler</label><div class="row"><input id="np" placeholder="Naam" onkeydown="if(event.key==='Enter')addPlayer()"><button class="go s" style="flex:0 0 auto" onclick="addPlayer()">+ Nieuw</button></div>
+ <p class="inf">Een speler kan in meerdere teams zitten. Tik op het rondje om een foto te kiezen.</p>
+ <button class="go" onclick="saveTeam()">Opslaan</button><button class="go alt" onclick="draft=null;render()">Annuleren</button></div>`;
+}
+function keepName(){const e=$("#dn");if(e&&draft)draft.name=e.value}
+function addExisting(){keepName();const v=$("#ps").value;if(v&&!draft.ids.includes(v))draft.ids.push(v);render()}
+function addPlayer(){keepName();const e=$("#np"),n=e.value.trim();if(!n)return;
+ const ex=PN[pkey(n)];
+ if(ex){if(!draft.ids.includes(ex.id))draft.ids.push(ex.id);else{alert(n+" zit al in het team");return}}
+ else{if(draft.newP.some(x=>pkey(x.name)===pkey(n))){alert(n+" zit al in het team");return}draft.newP.push({tid:"n:"+Date.now(),name:n,photo:""})}
+ render();setTimeout(()=>{const x=$("#np");x&&x.focus()},30)}
+function rmFromTeam(k){if(draft.founder===k)draft.founder="";draft.ids=draft.ids.filter(i=>i!==k);draft.newP=draft.newP.filter(x=>x.tid!==k);delete draft.photos[k];render()}
+function pick(t){pickT=t;const f=$("#file");f.value="";f.click()}
+async function gotFile(inp){
+ const f=inp.files&&inp.files[0];if(!f||!pickT)return;
+ if(!/^image\//.test(f.type)){alert("Kies een afbeelding");return}
+ try{
+  const logo=pickT.k==="logo"||pickT.k==="mlogo";
+  const url=await cropImage(f,{round:!logo,size:logo?240:220});if(!url)return;
+  if(pickT.k==="logo"&&draft)draft.logo=url;
+  else if(pickT.k==="p"&&draft){if(pickT.id.startsWith("n:")){const x=draft.newP.find(y=>y.tid===pickT.id);if(x)x.photo=url}else draft.photos[pickT.id]=url}
+  else if(pickT.k==="pp"&&pdraft)pdraft.photo=url;
+  else if(pickT.k==="mp"&&mdraft)mdraft.photo=url;
+  else if(pickT.k==="mlogo"&&tdraft)tdraft.logo=url;
+  render();
+ }catch(e){alert("Deze afbeelding kan niet worden geopend")}
+}
+// ---- bijsnijden: zelf het kader kiezen
+let CR=null;const ZMAX=6;
+function cropImage(file,o){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>startCrop(img,o,res);img.src=r.result};r.readAsDataURL(file)})}
+function startCrop(img,o,res){
+ const m=$("#crop"),vp=$("#cropVp"),el=$("#cropImg");
+ vp.classList.toggle("round",!!o.round);$("#cropTitle").textContent=o.round?"Foto bijsnijden":"Logo bijsnijden";
+ m.hidden=false;vp.style.height=(vp.clientWidth||300)+"px";el.src=img.src;
+ const V=vp.clientWidth||300,w=img.naturalWidth,h=img.naturalHeight,minS=o.round?Math.max(V/w,V/h):Math.min(V/w,V/h);
+ CR={img,o,res,V,w,h,minS,s:minS,x:(V-w*minS)/2,y:(V-h*minS)/2,P:new Map()};
+ $("#cropZoom").value=0;cropDraw();setTimeout(()=>$("#cropZoom").focus(),30);
+}
+function cropClamp(){const{V,w,h,s}=CR,W=w*s,H=h*s;
+ CR.x=W>=V?Math.min(0,Math.max(V-W,CR.x)):Math.max(0,Math.min(V-W,CR.x));
+ CR.y=H>=V?Math.min(0,Math.max(V-H,CR.y)):Math.max(0,Math.min(V-H,CR.y))}
+function cropDraw(){cropClamp();const el=$("#cropImg");el.style.width=CR.w*CR.s+"px";el.style.height=CR.h*CR.s+"px";el.style.transform=`translate(${CR.x}px,${CR.y}px)`}
+function cropScale(ns,px,py){if(!CR)return;ns=Math.max(CR.minS,Math.min(CR.minS*ZMAX,ns));const cx=(px-CR.x)/CR.s,cy=(py-CR.y)/CR.s;CR.s=ns;CR.x=px-cx*ns;CR.y=py-cy*ns;$("#cropZoom").value=Math.round(100*Math.log(ns/CR.minS)/Math.log(ZMAX));cropDraw()}
+function cropZoomTo(v){if(CR)cropScale(CR.minS*Math.pow(ZMAX,v/100),CR.V/2,CR.V/2)}
+function cropPt(e){const r=$("#cropVp").getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function cropDone(){if(!CR)return;const{o,img,V}=CR,N=o.size,c=document.createElement("canvas");c.width=c.height=N;const x=c.getContext("2d"),k=N/V;
+ if(o.round){x.fillStyle="#fff";x.fillRect(0,0,N,N)}x.imageSmoothingQuality="high";x.drawImage(img,CR.x*k,CR.y*k,CR.w*CR.s*k,CR.h*CR.s*k);
+ let u;if(o.round)u=c.toDataURL("image/jpeg",.85);else{u=c.toDataURL("image/webp",.85);if(!u.startsWith("data:image/webp"))u=c.toDataURL("image/png")}
+ const r=CR.res;cropClose();r(u)}
+function cropCancel(){const r=CR&&CR.res;cropClose();if(r)r(null)}
+function cropClose(){$("#crop").hidden=true;$("#cropImg").removeAttribute("src");CR=null}
+(function(){const vp=$("#cropVp");
+ vp.addEventListener("pointerdown",e=>{if(!CR)return;vp.setPointerCapture(e.pointerId);CR.P.set(e.pointerId,cropPt(e));e.preventDefault()});
+ vp.addEventListener("pointermove",e=>{if(!CR||!CR.P.has(e.pointerId))return;const pt=cropPt(e),prev=CR.P.get(e.pointerId);
+  if(CR.P.size===1){CR.x+=pt.x-prev.x;CR.y+=pt.y-prev.y;CR.P.set(e.pointerId,pt);cropDraw();return}
+  const ids=[...CR.P.keys()],other=CR.P.get(ids.find(i=>i!==e.pointerId)),d0=Math.hypot(prev.x-other.x,prev.y-other.y),d1=Math.hypot(pt.x-other.x,pt.y-other.y);
+  CR.P.set(e.pointerId,pt);if(d0>0)cropScale(CR.s*d1/d0,(pt.x+other.x)/2,(pt.y+other.y)/2)});
+ const up=e=>{if(CR)CR.P.delete(e.pointerId)};vp.addEventListener("pointerup",up);vp.addEventListener("pointercancel",up);
+ vp.addEventListener("wheel",e=>{if(!CR)return;e.preventDefault();const pt=cropPt(e);cropScale(CR.s*Math.exp(-e.deltaY*.0015),pt.x,pt.y)},{passive:false});
+ document.addEventListener("keydown",e=>{if(!CR)return;if(e.key==="Escape")cropCancel();else if(e.key==="Enter"&&e.target.tagName!=="BUTTON")cropDone()});
+})();
+function shrink(file,size,keepWhole){return new Promise((res,rej)=>{
+ const r=new FileReader();r.onerror=rej;r.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{
+  const c=document.createElement("canvas");c.width=c.height=size;const x=c.getContext("2d"),w=img.naturalWidth,h=img.naturalHeight;
+  if(keepWhole){const k=Math.min(size/w,size/h),dw=w*k,dh=h*k;x.drawImage(img,(size-dw)/2,(size-dh)/2,dw,dh);
+   let u=c.toDataURL("image/webp",.85);if(!u.startsWith("data:image/webp"))u=c.toDataURL("image/png");res(u)}
+  else{const m=Math.min(w,h);x.fillStyle="#fff";x.fillRect(0,0,size,size);x.drawImage(img,(w-m)/2,(h-m)/2,m,m,0,0,size,size);res(c.toDataURL("image/jpeg",.82))}
+ };img.src=r.result};r.readAsDataURL(file)})}
+async function saveTeam(){
+ const d=draft,name=(d.name||"").trim();if(!name){alert("Vul een teamnaam in");return}
+ if(teamList().some(n=>pkey(n)===pkey(name)&&pkey(n)!==pkey(d.oldName))){alert("Er is al een team met die naam");return}
+ const ids=[...d.ids],nm={};let i=0;
+ let founder=d.founder;
+ for(const x of d.newP){const pid="p"+Date.now()+(i++);if(!await put("players",pid,{name:x.name,photo:x.photo||"",created:Date.now()}))return;ids.push(pid);nm[pid]=x.name;if(founder===x.tid)founder=pid}
+ if(!ids.includes(founder))founder="";
+ for(const [pid,url] of Object.entries(d.photos)){const pl=PM[pid];if(pl&&ids.includes(pid)&&!await put("players",pid,{...strip(pl),photo:url}))return}
+ const members=ids.map(k=>nm[k]||(PM[k]&&PM[k].name)).filter(Boolean).join(" & ");
+ const old=d.id&&RAWT.find(t=>t.id===d.id);
+ if(await put("teams",d.id||"t"+Date.now(),{...(old?strip(old):{created:Date.now()}),name,members,logo:d.logo||"",players:ids,founder,founded:d.founded||""})){if(teamName&&d.oldName&&teamName===d.oldName)teamName=name;draft=null;alert("Opgeslagen");render()}
+}
+function fmtDate(v){const d=new Date(v+"T12:00:00");return isNaN(d)?v:d.toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"})}
+function strip(o){const{id,...r}=o;return r}
+async function saveTeamDoc(t,ids,extra){const r=strip(t);delete r.game;r.players=ids;r.members=ids.map(k=>(extra&&extra[k])||(PM[k]&&PM[k].name)).filter(Boolean).join(" & ");return put("teams",t.id,r)}
+
+// spelers beheren
+function allPlayers(){const L=[...RAWP];if(isP())names().forEach(n=>{if(!PN[pkey(n)])L.push({id:null,name:n,photo:(TM[n]&&TM[n].logo)||""})});return L.filter(x=>x.name).sort((a,b)=>a.name.localeCompare(b.name))}
+function playersManage(){
+ if(pdraft)return playerEditor();
+ const L=allPlayers();
+ return `<button class="go" style="margin:0 0 12px" onclick="newPlayerDraft()">+ Nieuwe speler</button><p class="note" style="margin-top:0">Spelers en teams gelden voor alle spellen. Bij FIFA en Clash Royale spelen spelers los, bij Zonderbord en Voetvolley speelt het hele team.</p>`+(L.length?`<div class="list">${L.map((x,i)=>{const tc=x.id?teamsOf(x.id).length:0;return `<div class="li" style="cursor:default">${pav(x)}<div><b>${esc(x.name)}</b><span>${tc?tc+(tc===1?" team":" teams"):"Geen team"}${x.photo?"":" · geen foto"}${emailsOn()&&x.id&&EMBY[x.id]?`<br>✉ ${esc(EMBY[x.id])}`:""}</span></div><button class="ic" onclick="editPlayerAt(${i})">✎ Bewerk</button><button class="ic" onclick="delPlayerAt(${i})" aria-label="Verwijder ${esc(x.name)}">🗑</button></div>`}).join("")}</div>`:`<div class="card empty">Nog geen spelers.</div>`);
+}
+function newPlayerDraft(){pdraft={id:null,name:"",photo:"",email:"",isNew:true,teams:new Set()};render();setTimeout(()=>{const e=$("#pn");e&&e.focus()},30)}
+function editPlayerDraft(pid){const x=PM[pid];if(!x)return;pdraft={id:pid,name:x.name,photo:x.photo||"",email:EMBY[pid]||"",isNew:false,teams:new Set(teamsOf(pid).map(t=>t.id))};view="add";addTab="players";draft=null;closeDrawer();render();scrollTop()}
+function editPlayerAt(i){const x=allPlayers()[i];if(!x)return;if(x.id)return editPlayerDraft(x.id);pdraft={id:null,name:x.name,photo:x.photo||"",isNew:false,teams:new Set()};view="add";addTab="players";render();scrollTop()}
+function editPlayerByName(i){const n=names()[i],x=PN[pkey(n)];if(x)editPlayerDraft(x.id);else{pdraft={id:null,name:n,photo:(TM[n]&&TM[n].logo)||"",isNew:false,teams:new Set()};view="add";addTab="players";draft=null;render();scrollTop()}}
+function playerEditor(){
+ const d=pdraft,TT=RAWT.filter(t=>t.name).sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="form"><div class="ted">
+ <button class="logoPick" style="border-radius:50%" onclick="pick({k:'pp'})" aria-label="Foto kiezen">${d.photo?`<img src="${d.photo}" class="ph" alt="">`:`<span class="lp-empty">${IC.camera}<span>Foto</span></span>`}</button>
+ <div style="flex:1;min-width:0">${d.isNew?`<label for="pn" style="margin-top:0">Naam</label><input id="pn" value="${esc(d.name)}" oninput="pdraft.name=this.value">`:`<div class="ptitle" style="margin:0;font-size:28px">${esc(d.name)}</div>`}
+ ${d.photo?`<button class="ic" style="margin:10px 0 0" onclick="pdraft.photo='';render()">Foto weghalen</button>`:`<p class="inf">Tik op het rondje om een foto te kiezen</p>`}</div></div>
+ ${emailsOn()?`<label for="pe">✉ E-mail om in te loggen (optioneel)</label><input id="pe" type="email" inputmode="email" autocomplete="off" placeholder="bijv. naam@gmail.com" value="${esc(d.email||"")}" oninput="pdraft.email=this.value"><p class="inf">Logt iemand met dit adres in, dan wordt dit automatisch zijn speler. Alleen de beheerder ziet dit adres.</p>`:""}
+ <label>Zit in teams</label>${TT.length?`<div class="chks">${TT.map(t=>`<label><input type="checkbox" ${d.teams.has(t.id)?"checked":""} onchange="this.checked?pdraft.teams.add('${t.id}'):pdraft.teams.delete('${t.id}')">${esc(t.name)}</label>`).join("")}</div>`:`<p class="inf">Nog geen teams. Maak eerst een team aan bij het tabblad Teams.</p>`}
+ <button class="go" onclick="savePlayer()">Opslaan</button><button class="go alt" onclick="pdraft=null;render()">Annuleren</button></div>`;
+}
+async function savePlayer(){
+ const d=pdraft,name=(d.name||"").trim();if(!name){alert("Vul een naam in");return}
+ if(d.isNew&&RAWP.some(x=>pkey(x.name)===pkey(name))){alert("Die speler bestaat al");return}
+ const pid=d.id||"p"+Date.now(),old=PM[pid],em=normEmail(d.email),oldEm=EMBY[pid]||"";
+ if(emailsOn()){if(em&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){alert("Dit e-mailadres klopt niet");return}
+  if(em&&EMAIL[em]&&EMAIL[em]!==pid&&PM[EMAIL[em]]){alert("Dit e-mailadres hoort al bij "+PM[EMAIL[em]].name);return}}
+ const eh=HASHLINK&&emailsOn()?{eh:em?await hashEmail(em):""}:{};
+ if(!await put("players",pid,{...(old?strip(old):{created:Date.now()}),name,photo:d.photo||"",...eh}))return;
+ if(emailsOn()&&em!==oldEm){try{if(oldEm)await db.collection("emails").doc(oldEm).delete();if(em)await db.collection("emails").doc(em).set({pid})}catch(e){alert("De speler is opgeslagen, maar het e-mailadres niet");return}}
+ for(const t of RAWT.filter(t=>t.name)){
+  const ids=teamPlayers(t).map(x=>x.id).filter(Boolean),has=ids.includes(pid),want=d.teams.has(t.id);
+  if(has===want)continue;
+  if(!await saveTeamDoc(t,want?[...ids,pid]:ids.filter(x=>x!==pid),{[pid]:name}))return}
+ pdraft=null;alert("Opgeslagen");render();
+}
+async function delPlayer(pid){
+ const x=PM[pid];if(!x||!admin||!canWrite)return;
+ if(pend!=="p"+pid){pend="p"+pid;alert(`Tik nog een keer: ${x.name} wordt verwijderd en uit alle teams gehaald`);setTimeout(()=>{pend=null},5000);return}
+ pend=null;
+ try{for(const t of teamsOf(pid)){const ids=teamPlayers(t).map(y=>y.id).filter(y=>y&&y!==pid);await saveTeamDoc(t,ids)}
+  await db.collection("players").doc(pid).delete();if(emailsOn()&&EMBY[pid])await db.collection("emails").doc(EMBY[pid]).delete();alert("Verwijderd");if(view==="player")go("home");else render()}catch(e){alert("Verwijderen mislukt")}
+}
+function delPlayerAt(i){const x=allPlayers()[i];if(!x)return;if(x.id)delPlayer(x.id);else delTeam(names().indexOf(x.name))}
+
+// ---- opslaan en verwijderen
+async function saveResult(){
+ const g=id=>($(id)?$(id).value.trim():""),info=g("#info"),ref=g("#ref"),mode=g("#mode"),sub=g("#sub"),rc=g("#rc"),ta=g("#ta"),tb=g("#tb");
+ let sa=+g("#sa")||0,sb=+g("#sb")||0,legs=null;
+ if(LEGS()>1){const a2=+g("#sa2")||0,b2=+g("#sb2")||0;legs=[{a:sa,b:sb},{a:a2,b:b2}];sa+=a2;sb+=b2}
+ if(MAXP()&&(sa>MAXP()||sb>MAXP())){alert("Maximaal "+MAXP()+" "+U().toLowerCase()+" per team");return}
+ if(!rc){const a=g("#a"),b=g("#b");if(!a||!b||a===b){alert("Vul twee verschillende "+GM[game].u+" in");return}
+  const old=editM&&matches.find(x=>x.id===editM),n=old?old.n:matches.reduce((m,x)=>Math.max(m,x.n||0),0)+1;
+  if(await put("matches",old?old.id:"m"+Date.now(),{n,t:old?(old.t||old.n):Date.now(),mode,sub,a,b,sa,sb,legs,type:old?old.type:"Vriendschappelijk",ref,info,ta,tb})){alert("Opgeslagen");go("results")}
+  return}
+ const c=comps.find(x=>x.id===rc),key=g("#rg");if(!c||!key){alert("Kies een wedstrijd");return}
+ if(c.type==="knockout"&&sa===sb){alert(legs?"Gelijk over de 2 wedstrijden. Bij knock-out moet er een winnaar zijn":"Bij knock-out is geen gelijkspel mogelijk");return}
+ if(await storeScore(c,key,sa,sb,{info,ref,mode,sub,ta,tb,legs})){alert("Opgeslagen");go("results")}
+}
+function pruneLater(rest,key){const[r,i]=key.slice(1).split("-").map(Number);
+ Object.keys(rest.scores).forEach(k=>{const[r2,i2]=k.slice(1).split("-").map(Number);if(r2>r&&i2===Math.floor(i/2**(r2-r))){delete rest.scores[k];delete rest.meta[k]}})}
+async function storeScore(c,key,sa,sb,m){
+ const{id,...rest}=c;rest.scores={...(c.scores||{})};rest.meta={...(c.meta||{})};
+ const old=rest.scores[key];if(c.type==="knockout"&&old&&(old[0]>old[1])!==(sa>sb))pruneLater(rest,key);
+ rest.scores[key]=[sa,sb];rest.meta[key]={...m,t:(rest.meta[key]||{}).t||Date.now()};
+ return put("comps",c.id,rest);
+}
+async function saveScore(cid,key,ko){
+ const c=comps.find(x=>x.id===cid),mt=(c.meta||{})[key]||{};let a=$("#a_"+key).value,b=$("#b_"+key).value,legs=null;
+ if(MAXP()&&(+a>MAXP()||+b>MAXP())){alert("Maximaal "+MAXP()+" "+U().toLowerCase()+" per team");return}
+ if(a===""||b===""){alert("Vul beide scores in");return}
+ if(LEGS()>1){const a2=$("#a2_"+key).value,b2=$("#b2_"+key).value;if(a2===""||b2===""){alert("Vul ook de 2e wedstrijd in");return}legs=[{a:+a,b:+b},{a:+a2,b:+b2}];a=+a+(+a2);b=+b+(+b2)}
+ if(ko&&+a===+b){alert(legs?"Gelijk over de 2 wedstrijden. Bij knock-out moet er een winnaar zijn":"Bij knock-out is geen gelijkspel mogelijk");return}
+ if(await storeScore(c,key,+a,+b,{...mt,legs,info:$("#i_"+key).value.trim(),ta:$("#ca_"+key)?$("#ca_"+key).value.trim():mt.ta||"",tb:$("#cb_"+key)?$("#cb_"+key).value.trim():mt.tb||""}))alert("Opgeslagen");
+}
+async function wipe(cid,key){
+ if(!admin||!canWrite)return;
+ if(pend!=="w"+cid+key){pend="w"+cid+key;alert("Tik nog een keer om de uitslag te wissen");setTimeout(()=>{pend=null},4000);return}
+ pend=null;const c=comps.find(x=>x.id===cid);if(!c)return;
+ const{id,...rest}=c;rest.scores={...(c.scores||{})};rest.meta={...(c.meta||{})};
+ if(c.type==="knockout")pruneLater(rest,key);delete rest.scores[key];delete rest.meta[key];
+ if(await put("comps",cid,rest))alert("Uitslag gewist");
+}
+async function addTeam(){
+ const name=$("#tn").value.trim();if(!name){alert("Vul een naam in");return}
+ if(await put("teams","t"+Date.now(),{name,members:$("#tm").value.trim()})){alert("Toegevoegd");go("teams")}
+}
+async function saveComp(){
+ const name=$("#cn").value.trim(),old=editC&&comps.find(x=>x.id===editC);
+ let ts=[...document.querySelectorAll(".cp:checked")].map(x=>x.value);
+ $("#ce").value.split(",").map(x=>x.trim()).filter(Boolean).forEach(n=>{if(!ts.includes(n))ts.push(n)});
+ if(!name){alert("Geef de competitie een naam");return}
+ if(ts.length<2){alert("Kies minimaal 2 "+GM[game].u);return}
+ const type=$("#ct").value,x=type==="league"?+$("#cx").value:1;
+ if(old)ts=[...old.teams.filter(n=>ts.includes(n)),...ts.filter(n=>!old.teams.includes(n))];
+ else if(type==="knockout")ts.sort(()=>Math.random()-.5);
+ const same=old&&old.type===type&&old.x===x&&JSON.stringify(old.teams)===JSON.stringify(ts);
+ const id=old?old.id:"c"+Date.now(),ranked=$("#cmode").value==="1";
+ if(await put("comps",id,{name,type,x,ranked,teams:ts,scores:same?old.scores||{}:{},meta:same?old.meta||{}:{},created:old?old.created:Date.now()})){editC=null;newTid="";openComp(id)}
+}
+async function delTeam(i){
+ const n=names()[i];if(!n||!admin||!canWrite)return;
+ const ms=matches.filter(m=>m.a===n||m.b===n),cs=comps.filter(c=>c.teams.includes(n));
+ if(pend!=="t"+n){pend="t"+n;alert(`Tik nog een keer: ${n} verdwijnt (bij alle spellen), met ${ms.length} losse uitslagen, en uit ${cs.length} competities (die uitslagen worden gewist)`);setTimeout(()=>{pend=null},5000);return}
+ pend=null;
+ try{
+  for(const m of ms)await db.collection("matches").doc(m.id).delete();
+  for(const t of teams.filter(t=>t.name===n))await db.collection("teams").doc(t.id).delete();
+  for(const c of cs){const ts=c.teams.filter(x=>x!==n);
+   if(ts.length<2){await db.collection("comps").doc(c.id).delete();continue}
+   const{id,...rest}=c;rest.teams=ts;rest.scores={};rest.meta={};await db.collection("comps").doc(c.id).set(rest)}
+  alert("Verwijderd");go("teams");
+ }catch(e){alert("Verwijderen mislukt")}
+}
+async function delDoc(col,id){
+ if(!admin||!canWrite)return;
+ if(pend!==col+id){pend=col+id;alert("Tik nog een keer om te verwijderen");setTimeout(()=>{pend=null},4000);return}
+ pend=null;
+ try{await db.collection(col).doc(id).delete();alert("Verwijderd");if(col==="comps"||col==="tourns")go("comps")}catch(e){alert("Verwijderen mislukt")}
+}
+
+// ---- start
+applyGame();render();
+(function(){
+ if(!window.firebase){alert("Kon Firebase niet laden, check je internet");return}
+ firebase.initializeApp(firebaseConfig);
+ db=firebase.firestore();live=true;
+ firebase.auth().onAuthStateChanged(u=>{admin=canWrite=!!u&&u.email===ADMIN_EMAIL;ME=null;watchEmails(admin);if(u&&!admin)linkMe(u);else render()});
+ firebase.auth().getRedirectResult().catch(()=>{});
+ const sub=(c,f)=>db.collection(c).onSnapshot(s=>{f(s.docs.map(d=>({id:d.id,...d.data()})));applyGame();render()},e=>console.error(c,e));
+ sub("matches",x=>RAWM=x);sub("teams",x=>RAWT=x);sub("tourns",x=>RAWTO=x);sub("comps",x=>RAWC=x);sub("players",x=>RAWP=x);
+ render();
+})();
+</script>
+</body>
+</html>
