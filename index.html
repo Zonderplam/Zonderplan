@@ -489,7 +489,7 @@ function nameUsed(n){const k=pkey(n);return RAWM.some(m=>pkey(m.a)===k||pkey(m.b
 function meHtml(){
  let h=pageTitle("Mijn profiel");
  if(!live)return h+`<div class="card empty">Nog niet verbonden met de database.</div>`;
- if(!ME)return h+`<div class="card pad"><b>Doe zelf mee</b><div class="inf">Iedereen kan met zijn eigen account één speler maken, met naam en foto. Daarna kun je één team oprichten. Daarvan ben je automatisch de leider.</div>${window.firebase?`<button class="go" onclick="googleLogin()">Inloggen met Google</button>`:`<div class="inf"><b>Je kunt deze pagina nu alleen bekijken.</b> Vraag de eigenaar om je de rol Contributor te geven (via Delen). Daarna kun je hier met je eigen account één speler en één team maken.</div>`}</div>`+loginCard();
+ if(!ME)return h+`<div class="card pad"><b>Doe zelf mee</b><div class="inf">Iedereen kan met zijn eigen account één speler maken, met naam en foto. Daarna kun je één team oprichten. Daarvan ben je automatisch de leider.</div>${window.firebase?(inApp()?"</div>"+inAppCard()+"<div>":`<button class="go" onclick="googleLogin()">Inloggen met Google</button>`):`<div class="inf"><b>Je kunt deze pagina nu alleen bekijken.</b> Vraag de eigenaar om je de rol Contributor te geven (via Delen). Daarna kun je hier met je eigen account één speler en één team maken.</div>`}</div>`+loginCard();
  const P=PM[myPid()],T=myTeam(),INV=myInvites();
  if(P&&INV.length)h+=`<div class="sec">Uitnodigingen</div>`+INV.map(iv=>{const tm=RAWT.find(t=>t.id===iv.team),from=PM[iv.from],cur=teamsOf(P.id).filter(t=>t.id!==iv.team);return tm?`<div class="card pad inv"><div class="rhead">${tcrest(tm.name,44)}<div class="rn" style="flex:1"><b>${esc(tm.name)}</b></div></div><div class="inf">${from?esc(from.name)+" nodigt je uit voor dit team.":"Je bent uitgenodigd voor dit team."}${cur.length?` Je verlaat dan <b>${cur.map(t=>esc(t.name)).join(", ")}</b>.`:""}</div><div class="acts"><button class="go s" onclick="acceptInvite('${iv.id}')">✓ Accepteren</button><button class="ic" onclick="declineInvite('${iv.id}')">Weigeren</button></div></div>`:""}).join("");
  h+=`<div class="sec">Mijn speler</div>`;
@@ -770,7 +770,17 @@ async function tryCode(){
  try{await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,c);alert("Beheer staat aan");go("home")}
  catch(e){const c=e&&e.code||"";alert(c==="auth/too-many-requests"?"Te vaak geprobeerd, wacht even":c==="auth/operation-not-allowed"?"Inloggen met e-mail staat uit in Firebase (Authentication → Sign-in method → Email/Password)":c==="auth/user-not-found"?"Het account beheer@zonderbord.nl bestaat nog niet in Firebase":c==="auth/network-request-failed"?"Geen internetverbinding met Firebase":["auth/invalid-credential","auth/wrong-password","auth/invalid-login-credentials"].includes(c)?"Verkeerde code, of het account beheer@zonderbord.nl bestaat nog niet in Firebase":"Inloggen mislukt ("+c+")")}
 }
+function inApp(){const u=navigator.userAgent||"";const m=u.match(/Snapchat|Instagram|FBAN|FBAV|FB_IAB|FBIOS|TikTok|musical_ly|BytedanceWebview|Line\/|LinkedInApp|Twitter|Pinterest|WhatsApp|Discord/i);if(m)return m[0].replace(/FBAN|FBAV|FB_IAB|FBIOS/i,"Facebook").replace(/musical_ly|BytedanceWebview/i,"TikTok").replace(/Line\//i,"LINE");return /; wv\)/.test(u)?"een app":""}
+function isIOS(){return /iPhone|iPad|iPod/i.test(navigator.userAgent||"")}
+function copyLink(){const u=location.href.split("#")[0];try{navigator.clipboard.writeText(u).then(()=>alert("Link gekopieerd. Plak hem in Safari of Chrome."),()=>selLink())}catch(e){selLink()}}
+function selLink(){const e=$("#appLink");if(e){const r=document.createRange();r.selectNodeContents(e);const s=getSelection();s.removeAllRanges();s.addRange(r)}alert("Houd de link ingedrukt om hem te kopiëren")}
+function inAppCard(){const a=inApp(),u=location.href.split("#")[0],host=u.replace(/^https?:\/\//,"");
+ return `<div class="card pad inv"><b>Open deze pagina in je browser</b><div class="inf">Je kijkt nu in ${a==="een app"?"een app":"de app van <b>"+esc(a)+"</b>"}. Google laat je daar niet inloggen, daarom wordt het scherm wit. Open de link in ${isIOS()?"<b>Safari</b>":"<b>Chrome</b>"}, dan werkt het wel.</div>
+ <div class="inf" style="margin-top:8px">${isIOS()?"Tik rechtsboven op <b>⋯</b> of het deel-icoon en kies <b>Openen in Safari</b> (in Snapchat: <b>⋯ → Openen in browser</b>).":"Tik rechtsboven op <b>⋮</b> en kies <b>Openen in Chrome</b> of <b>Openen in browser</b>."}</div>
+ <div class="acts">${isIOS()?`<a class="go s" style="text-decoration:none" href="x-safari-${esc(u)}">Open in Safari</a>`:`<a class="go s" style="text-decoration:none" href="intent://${esc(host)}#Intent;scheme=https;package=com.android.chrome;end">Open in Chrome</a>`}<button class="ic" onclick="copyLink()">Link kopiëren</button></div>
+ <div class="inf" id="appLink" style="margin-top:8px;user-select:all;word-break:break-all">${esc(u)}</div></div>`}
 async function googleLogin(){
+ if(inApp()){go("me");return}
  const fb=window.firebase;if(!fb||!fb.apps.length){alert("Nog niet verbonden met de database");return}
  const prov=new fb.auth.GoogleAuthProvider();
  try{await fb.auth().signInWithPopup(prov)}
