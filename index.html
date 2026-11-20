@@ -406,6 +406,28 @@ th{color:var(--mu)}
  .bar{grid-template-columns:58px 1fr 58px}
  #toast{bottom:28px}
 }
+/* media */
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mt{position:relative;aspect-ratio:1/1;max-width:100%;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#091522;cursor:pointer;padding:0;color:#fff;font:inherit;display:block;width:100%}
+.mt img{width:100%;height:100%;object-fit:cover;display:block}
+.mt .play{position:absolute;inset:0;display:grid;place-items:center}
+.mt .play span{width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.55);border:2px solid #fff;display:grid;place-items:center}
+.mt .cap{position:absolute;left:0;right:0;bottom:0;padding:18px 8px 7px;background:linear-gradient(transparent,rgba(0,0,0,.8));font-size:13px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt .gtag{position:absolute;top:7px;left:7px;width:10px;height:10px;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5),0 0 10px currentColor}
+.mt.vid{background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--gc,#5ee82a) 35%,#0b1a28),#060f18)}
+.mstrip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(130px,34%);gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.mstrip::-webkit-scrollbar{display:none}
+@media (min-width:640px){.mstrip{grid-auto-columns:minmax(150px,22%)}}
+.mbox{position:fixed;inset:0;z-index:65;background:rgba(0,4,10,.97);display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px))}
+.mbox .mtop{display:flex;justify-content:flex-end}
+.mbox .mview{flex:1;min-height:0;display:grid;place-items:center}
+.mbox .mview img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px}
+.mbox .mview iframe{width:min(100%,960px);aspect-ratio:16/9;max-height:100%;border:0;border-radius:12px;background:#000}
+.mbox .minfo{max-width:760px;width:100%;margin:10px auto 0;color:#eef5ff}
+.mbox .minfo b{font:italic 800 22px/1.15 var(--fd);display:block}
+.mbox .minfo .inf{color:#b9c8d8}
+.mform .typ{display:flex;gap:8px}
+.mprev{width:100%;max-height:260px;object-fit:contain;border-radius:12px;margin-top:10px;background:#091522}
 #toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:99px;font-size:15px;font-weight:600;display:none;z-index:60;max-width:90%;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 @media (max-width:420px){.ch h2{font-size:22px}.slide{padding-inline:8px}.mid{font-size:28px;min-width:54px}.t{gap:7px;font-size:15px}.sc{min-width:58px;font-size:19px}}
@@ -423,6 +445,8 @@ th{color:var(--mu)}
 <aside class="drawer" id="drawer" aria-label="Menu"></aside>
 <div id="toast" role="status"></div>
 <input type="file" id="file" accept="image/*" hidden onchange="gotFile(this)">
+<input type="file" id="mfile" accept="image/*" hidden onchange="gotMediaFile(this)">
+<div class="mbox" id="mbox" hidden role="dialog" aria-modal="true" aria-label="Media bekijken"></div>
 <div class="crop" id="crop" hidden role="dialog" aria-modal="true" aria-labelledby="cropTitle">
  <div class="cropbox">
   <h3 id="cropTitle">Bijsnijden</h3>
@@ -473,6 +497,8 @@ const IC={
  news:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5L6 10H3zM17 9a4 4 0 0 1 0 6M6 14l1 6h3l-1-5"/></svg>',
  pad:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M7 6h10c3 0 5 3 5.5 7l.4 3c.3 2.4-2.4 3.7-4 2l-2.4-2.5H7.5L5.1 18c-1.6 1.7-4.3.4-4-2l.4-3C2 9 4 6 7 6z"/><path d="M7.5 10v4M5.5 12h4" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1" fill="currentColor"/><circle cx="18" cy="13.4" r="1.1" fill="currentColor"/></svg>',
  down:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 7v7M9 11l3 3 3-3M10 18h4"/></svg>',
+ image:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>',
+ play:'<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>',
  x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
  check:'<svg class="chk" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
  whistle:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>'
@@ -484,7 +510,7 @@ let RAWM=[],RAWT=[],RAWC=[],RAWTO=[],matches=[],teams=[],comps=[],tourns=[],RTC=
 let addTab="res",draft=null,pickT=null,TM={};
 let RAWP=[],PM={},PN={},pdraft=null,curP=null,prevTeam=null;
 let NAV=[],compTab="stand",curName=null;
-let RAWI=[],unsubInv=null,ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
+let RAWMED=[],mFilter="all",mform=null,RAWI=[],unsubInv=null,ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const LOGO='<svg width="46" height="52" viewBox="0 0 46 52" aria-hidden="true"><path d="M23 2 43 9v16c0 13-9 21-20 25C12 46 3 38 3 25V9z" fill="#0b1a28" stroke="#5ee82a" stroke-width="3" style="filter:drop-shadow(0 0 5px #5ee82a)"/><path d="M14 20h18c3 0 5 3 5.5 7l.3 2c.2 2-2 3-3.3 1.7L32.4 29H13.6l-2.1 1.7C10.2 32 8 31 8.2 29l.3-2C9 23 11 20 14 20z" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M14.5 23.5v4M12.5 25.5h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="29.5" cy="24.5" r="1.3" fill="#fff"/><circle cx="32" cy="27" r="1.3" fill="#fff"/></svg>';
@@ -630,6 +656,7 @@ function personDetail(n){
  h+=`<div class="sec">Nu bezig</div>`+(act.length?act.map(c=>compBig(c,n)).join(""):`<div class="card empty">Doet nu niet mee aan een competitie.</div>`);
  h+=`<div class="sec">Per spel</div><div class="gtiles">${G.map(g=>{const x=S[g];return `<div class="gt" style="--gc:${GM[g].c}"><b>${GM[g].e} ${GM[g].n}</b>${rankBadge(rankOf(g,n))}<span class="st">${x.res.length} gespeeld · ${x.w} W · ${x.v} V${x.d?" · "+x.d+" G":""}</span></div>`}).join("")}</div>`;
  if(fin.length)h+=`<div class="sec">Afgelopen competities</div>`+fin.map(c=>{const g=cg(c),fp=(finalPlaces(c)||[]).find(x=>same(x.name,n));return `<button class="li" style="margin-bottom:8px" onclick="openCompIn('${g}','${c.id}')">${fp?`<span class="rank ${rk(fp.place-1)}">${fp.place}</span>`:""}<div><b>${esc(c.name)}</b><span>${GM[g].e} ${GM[g].n} · ${fp?fp.place+"e plek":"afgelopen"}</span>${c.ranked&&fp?`<span style="display:block;margin-top:4px">${rankBadge(placeRank(fp.place))}</span>`:""}</div>${IC.chev}</button>`}).join("");
+ {const PMd=pr.id?RAWMED.filter(m=>(m.players||[]).includes(pr.id)).sort((a,b)=>(b.created||0)-(a.created||0)):[];if(PMd.length)h+=`<div class="sec">Media</div><div class="mstrip">${PMd.map(mTile).join("")}</div>`}
  h+=`<div class="sec">Laatste uitslagen</div>`+(all.length?all.slice(0,8).map(m=>{const me=same(m.a,n),a=me?m.sa:m.sb,b=me?m.sb:m.sa,r=a>b?"W":a<b?"V":"G",opp=me?m.b:m.a;return `<div class="lr"><span class="pill ${r}">${r}</span><span class="gdot" style="background:${GM[m.g].c}" title="${GM[m.g].n}"></span><span class="who">tegen <b>${esc(opp)}</b><small class="inf" style="margin:0">${GM[m.g].n} · ${m.kind==="c"?esc(m.c.name):"Vriendschappelijk"}</small></span><span class="scr">${a} – ${b}</span></div>`}).join(""):`<div class="card empty">Nog geen wedstrijden gespeeld.</div>`);
  if(isMe)h+=`<div class="acts"><button class="ic" onclick="go('me');mdraft={name:PM[myPid()].name,photo:PM[myPid()].photo||''};render()">✎ Bewerk mijn speler</button><button class="ic" onclick="go('me')">👑 Mijn team</button></div>`;
  else if(admin&&canWrite&&pr.id)h+=`<div class="acts"><button class="ic" onclick="editPlayerDraft('${pr.id}')">✎ Bewerk speler</button><button class="ic" onclick="delPlayer('${pr.id}')">🗑 Verwijder speler</button></div>`;
@@ -740,9 +767,61 @@ async function impRun(){
  catch(e){alert("Importeren mislukt"+(e&&e.code==="permission-denied"?": geen rechten (log in met de beheercode)":""));if(b){b.disabled=false;b.textContent="Importeren"}}
 }
 
+// ---- media: foto's (verkleind in de database) en video's (via een link)
+function ytId(u){const m=String(u||"").match(/(?:youtu\.be\/|[?&]v=|shorts\/|embed\/|live\/)([A-Za-z0-9_-]{11})/);return m?m[1]:""}
+function webOK(){return !!window.firebase} // op de echte website mogen YouTube-plaatjes en -spelers laden
+function canAddMedia(){return !!db&&((admin&&canWrite)||!!ME)}
+function canDelMedia(m){return (admin&&canWrite)||(ME&&m.by===ME.uid)}
+function mTile(m){const gc=m.game&&GM[m.game]?GM[m.game].c:"#5ee82a",yt=m.type==="video"&&ytId(m.url);
+ return `<button class="mt ${m.type==="video"?"vid":""}" style="--gc:${gc}" onclick="openMediaItem('${m.id}')" aria-label="${esc(m.caption||(m.type==="video"?"Video":"Foto"))}">${m.type==="photo"&&m.thumb?`<img src="${m.thumb}" alt="" loading="lazy">`:yt&&webOK()?`<img src="https://i.ytimg.com/vi/${yt}/hqdefault.jpg" alt="" loading="lazy" onerror="this.remove()">`:""}${m.type==="video"?`<span class="play"><span>${IC.play}</span></span>`:""}<span class="gtag" style="background:${gc};color:${gc}"></span>${m.caption?`<span class="cap">${esc(m.caption)}</span>`:""}</button>`}
+function mediaHtml(){
+ let h=pageTitle("Media");
+ if(canAddMedia())h+=mform?mediaForm():`<button class="go" style="margin:0 0 14px" onclick="mform={type:'photo',caption:'',url:'',game:game,players:[],team:'',thumb:'',full:''};render()">+ Foto of video toevoegen</button>`;
+ else h+=`<p class="note" style="text-align:left;margin:0 4px 12px">Log in bij <a href="#" onclick="go('me');return false">Mijn profiel</a> om zelf foto's en video's toe te voegen.</p>`;
+ const F=[["all","Alles"],...Object.keys(GM).map(k=>[k,GM[k].n]),["","Algemeen"]];
+ h+=`<div class="seg" role="tablist">${F.map(([k,l])=>`<button role="tab" aria-selected="${mFilter===k}" class="${mFilter===k?"sel":""}" onclick="mFilter='${k}';render()">${l}</button>`).join("")}</div>`;
+ const L=RAWMED.filter(m=>mFilter==="all"||(m.game||"")===mFilter).sort((a,b)=>(b.created||0)-(a.created||0));
+ return h+(L.length?`<div class="mg">${L.map(mTile).join("")}</div>`:`<div class="card empty">Nog geen media${mFilter==="all"?"":" hier"}. ${canAddMedia()?"Voeg de eerste foto of video toe.":""}</div>`)}
+function mediaForm(){const d=mform,P=RAWP.filter(x=>x.name).sort((a,b)=>a.name.localeCompare(b.name)),T=RAWT.filter(t=>t.name).sort((a,b)=>a.name.localeCompare(b.name));
+ return `<div class="form mform"><label>Wat wil je toevoegen?</label><div class="seg" style="margin:0;box-shadow:none;background:var(--bg)"><button type="button" class="${d.type==="photo"?"sel":""}" onclick="mKeep();mform.type='photo';render()">📷 Foto</button><button type="button" class="${d.type==="video"?"sel":""}" onclick="mKeep();mform.type='video';render()">🎬 Video</button></div>
+ ${d.type==="photo"?`<button class="go alt" type="button" onclick="mKeep();$('#mfile').value='';$('#mfile').click()">${d.thumb?"Andere foto kiezen":"Foto kiezen"}</button>${d.full?`<img class="mprev" src="${d.full}" alt="Gekozen foto">`:""}`:`<label for="mu">Link naar de video</label><input id="mu" type="url" inputmode="url" placeholder="https://youtu.be/..." value="${esc(d.url)}" oninput="mform.url=this.value"><p class="inf">Zet je video op YouTube (mag als "Niet vermeld") en plak de link hier. Een link van TikTok, Instagram of Google Drive kan ook.</p>`}
+ <label for="mc">Beschrijving</label><input id="mc" maxlength="140" placeholder="bijv. Finale Winter Cup" value="${esc(d.caption)}" oninput="mform.caption=this.value">
+ <div class="row"><div><label for="mgame">Spel</label><select id="mgame" onchange="mform.game=this.value"><option value="">Algemeen</option>${Object.keys(GM).map(k=>`<option value="${k}" ${d.game===k?"selected":""}>${GM[k].n}</option>`).join("")}</select></div><div><label for="mteam">Team (optioneel)</label><select id="mteam" onchange="mform.team=this.value"><option value="">Geen</option>${T.map(t=>`<option value="${t.id}" ${d.team===t.id?"selected":""}>${esc(t.name)}</option>`).join("")}</select></div></div>
+ ${P.length?`<label>Wie staan erop? (optioneel)</label><div class="chks">${P.map(x=>`<label><input type="checkbox" ${d.players.includes(x.id)?"checked":""} onchange="this.checked?mform.players.push('${x.id}'):mform.players=mform.players.filter(i=>i!=='${x.id}')">${esc(x.name)}</label>`).join("")}</div>`:""}
+ <button class="go" id="msave" onclick="saveMedia()">Toevoegen</button><button class="go alt" onclick="mform=null;render()">Annuleren</button></div>`}
+function mKeep(){const c=$("#mc"),u=$("#mu");if(mform){if(c)mform.caption=c.value;if(u)mform.url=u.value}}
+function resizeImg(file,max,maxLen){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const img=new Image();img.onerror=rej;img.onload=()=>{
+ let w=img.naturalWidth,h=img.naturalHeight,k=Math.min(1,max/Math.max(w,h)),q=.82,u="";
+ for(let i=0;i<8;i++){const c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,c.width,c.height);x.imageSmoothingQuality="high";x.drawImage(img,0,0,c.width,c.height);u=c.toDataURL("image/jpeg",q);if(u.length<=maxLen)break;if(q>.55)q-=.1;else k*=.8}
+ res(u)};img.src=r.result};r.readAsDataURL(file)})}
+async function gotMediaFile(inp){const f=inp.files&&inp.files[0];if(!f||!mform)return;if(!/^image\//.test(f.type)){alert("Kies een foto");return}
+ try{alert("Foto wordt klaargezet…");mform.full=await resizeImg(f,1600,880000);mform.thumb=await resizeImg(f,480,90000);render()}catch(e){alert("Deze foto kan niet worden geopend")}}
+async function saveMedia(){
+ mKeep();const d=mform;if(!d||!db)return;const by=admin&&canWrite?"admin":ME?ME.uid:"";if(!by){alert("Log eerst in");return}
+ const byName=admin&&canWrite?"Beheer":(PM[myPid()]||{}).name||"";
+ if(d.type==="photo"&&!d.full){alert("Kies eerst een foto");return}
+ if(d.type==="video"&&!/^https?:\/\/\S+\.\S+/.test((d.url||"").trim())){alert("Plak een geldige link naar de video");return}
+ const id="md"+Date.now(),b=$("#msave");if(b){b.disabled=true;b.textContent="Bezig…"}
+ try{
+  if(d.type==="photo")await db.collection("mediaFull").doc(id).set({src:d.full,by});
+  await db.collection("media").doc(id).set({type:d.type,thumb:d.type==="photo"?d.thumb:"",url:d.type==="video"?d.url.trim():"",caption:(d.caption||"").trim(),game:d.game||"",team:d.team||"",players:d.players||[],by,byName,created:Date.now()});
+  mform=null;alert("Toegevoegd");render()
+ }catch(e){alert(e&&e.code==="permission-denied"?"Toevoegen mag niet met dit account":"Toevoegen mislukt"+(e&&/size|large|quota/i.test(String(e.message||e.code))?": bestand te groot":""));if(b){b.disabled=false;b.textContent="Toevoegen"}}
+}
+async function openMediaItem(id){const m=RAWMED.find(x=>x.id===id);if(!m)return;const box=$("#mbox"),yt=m.type==="video"&&ytId(m.url);
+ const ppl=(m.players||[]).map(x=>PM[x]).filter(Boolean),tm=m.team&&RAWT.find(t=>t.id===m.team),G=m.game&&GM[m.game];
+ const info=`<div class="minfo">${m.caption?`<b>${esc(m.caption)}</b>`:""}<div class="inf">${G?esc(G.n):"Algemeen"}${tm?" · "+esc(tm.name):""}${m.byName?" · door "+esc(m.byName):""} · ${esc(new Date(m.created||0).toLocaleDateString("nl-NL",{day:"numeric",month:"long",year:"numeric"}))}</div>${ppl.length?`<div class="chiprow" style="margin-top:8px">${ppl.map(p=>`<button class="tchip" onclick="closeMedia();openPerson(${jsq(p.name)})">${pcrest(p,24)}${esc(p.name)}</button>`).join("")}</div>`:""}<div class="acts">${m.type==="video"?`<a class="ic" href="${esc(m.url)}" target="_blank" rel="noopener">Open video ↗</a>`:""}${canDelMedia(m)?`<button class="ic" onclick="delMedia('${m.id}')">🗑 Verwijderen</button>`:""}</div></div>`;
+ let view=m.type==="photo"?`<img src="${m.thumb}" alt="${esc(m.caption||"Foto")}" id="mimg">`:yt&&webOK()?`<iframe src="https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&rel=0" title="${esc(m.caption||"Video")}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`:`<a class="go" style="width:auto;padding:14px 26px;text-decoration:none" href="${esc(m.url)}" target="_blank" rel="noopener">▶ Bekijk de video</a>`;
+ box.innerHTML=`<div class="mtop"><button class="ib" onclick="closeMedia()" aria-label="Sluiten">${IC.x}</button></div><div class="mview">${view}</div>${info}`;box.hidden=false;
+ if(m.type==="photo"){try{const d=await db.collection("mediaFull").doc(id).get();const src=d.exists&&d.data().src;const im=$("#mimg");if(src&&im&&!box.hidden)im.src=src}catch(e){}}}
+function closeMedia(){const b=$("#mbox");b.hidden=true;b.innerHTML=""}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#mbox").hidden)closeMedia()});
+async function delMedia(id){const m=RAWMED.find(x=>x.id===id);if(!m||!canDelMedia(m))return;if(pend!=="md"+id){pend="md"+id;alert("Tik nog een keer om te verwijderen");setTimeout(()=>{pend=null},4000);return}pend=null;
+ try{if(m.type==="photo")await db.collection("mediaFull").doc(id).delete();await db.collection("media").doc(id).delete();closeMedia();alert("Verwijderd")}catch(e){alert("Verwijderen mislukt")}}
+
 // ---- navigatie
 function scrollTop(){window.scrollTo(0,0)}
-function go(v){NAV=[];if(v!=="me"){mdraft=null;tdraft=null}view=v;draft=null;pdraft=null;editM=null;editC=null;newTid="";if(v!=="comps"){open=null;openT=null}if(v!=="team")teamName=null;closeDrawer();render();scrollTop()}
+function go(v){NAV=[];if(v!=="media")mform=null;if(v!=="me"){mdraft=null;tdraft=null}view=v;draft=null;pdraft=null;editM=null;editC=null;newTid="";if(v!=="comps"){open=null;openT=null}if(v!=="team")teamName=null;closeDrawer();render();scrollTop()}
 function openComp(id){if(id){pushNav();compTab="stand"}view="comps";open=id;openT=null;closeDrawer();render();scrollTop()}
 function snap(){return{view,open,teamName,curName,game,compTab}}
 function pushNav(){NAV.push(snap());if(NAV.length>40)NAV.shift()}
@@ -768,7 +847,7 @@ function chrome(){
  const N=names();
  const items=dockItems();
  $("#dock").innerHTML=`<button class="dk ${view==="home"?"on":""}" onclick="go('home')"><span class="homei">${IC.home}</span><span class="nm">Home</span></button>`+(items.length?`<span class="dsep"></span>`:"")+items.join("");
- const nav=[["home","Home",IC.home],["program","Programma",IC.cal],["comps","Competities",IC.trophy],["results","Uitslagen",IC.list],["teams","Teams",IC.team],["players","Spelers",IC.user],["ranks","Ranks",IC.rank]];
+ const nav=[["home","Home",IC.home],["program","Programma",IC.cal],["comps","Competities",IC.trophy],["results","Uitslagen",IC.list],["teams","Teams",IC.team],["players","Spelers",IC.user],["ranks","Ranks",IC.rank],["media","Media",IC.image]];
  const inv=myInvites().length;
  $("#drawer").innerHTML=`<div class="dh"><button class="logo" onclick="go('home')" style="background:none;border:0;padding:0;cursor:pointer" aria-label="Zonderplan, naar Home"><span class="lw">${LOGO}<b>Zonder<em>plan</em></b></span><svg class="sw" viewBox="0 0 150 10" aria-hidden="true"><path d="M2 8 Q75 -2 148 6" stroke="#5ee82a" stroke-width="3" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #5ee82a)"/></svg></button><button class="ib" onclick="closeDrawer()" aria-label="Menu sluiten">${IC.x}</button></div>
  <div class="dl">Menu</div>${nav.map(([k,l,ic])=>`<button class="di ${view===k||(k==="teams"&&view==="team")||(k==="players"&&view==="person")?"on":""}" onclick="go('${k}')">${ic}${l}</button>`).join("")}
@@ -794,6 +873,7 @@ function render(){
  else if(view==="ranks")h=ranksHtml();
  else if(view==="me")h=meHtml();
  else if(view==="install")h=installHtml();
+ else if(view==="media")h=mediaHtml();
  else if(view==="add")h=admin?addHtml():loginHtml();
  else if(view==="login")h=admin?`<div class="ptitle">Beheer</div><div class="card pad">Je bent ingelogd als beheerder. Via de + rechtsboven voeg je uitslagen, competities en ${GM[game].u} toe.<button class="go alt" onclick="logout()">Uitloggen</button></div>`:loginHtml();
  v.innerHTML=h;
@@ -815,6 +895,8 @@ function homeHtml(){
  h+=`<div class="duo" style="--gc:${GM[game].c}">`;
  h+=`<button class="nx" onclick="${nx?`openComp('${nx.c.id}')`:`go('program')`}"><div class="nh">${IC.cal}Volgende wedstrijd<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${nx?`<b>${esc(GM[game].n)}</b><div class="who">${esc(nx.g.a)} – ${esc(nx.g.b)}</div><div class="meta">${IC.trophy.replace('width="22" height="22"','width="16" height="16"')}${esc(nx.c.name)} · ${esc(nx.g.label)}</div>`:`<b>Niets gepland</b><div class="who">Zodra er een competitie loopt, zie je hier de eerstvolgende wedstrijd.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button>`;
  h+=`<button class="nx" onclick="go('results')"><div class="nh">${IC.trophy}Laatste uitslag<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${last?`<b>${esc(GM[game].n)}</b><div class="who">${last.sa>last.sb?`<strong>${esc(last.a)}</strong>`:esc(last.a)} ${last.sa} – ${last.sb} ${last.sb>last.sa?`<strong>${esc(last.b)}</strong>`:esc(last.b)}</div><div class="meta">${esc(last.kind==="c"?last.c.name+" · "+last.label:"Vriendschappelijk")}${ago(last.t)?" · "+esc(ago(last.t)):""}</div>`:`<b>Nog geen uitslagen</b><div class="who">De eerste uitslag verschijnt hier.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button></div>`;
+ const MD=[...RAWMED].sort((a,b)=>(b.created||0)-(a.created||0)).slice(0,8);
+ if(MD.length)h+=`<div class="shead"><h3>${IC.image}Media</h3><button onclick="go('media')">Alles bekijken ${IC.chev}</button></div><div class="mstrip">${MD.map(mTile).join("")}</div>`;
  if(N.length)h+=`<section class="news2"><div class="nh"><b>${IC.news}Nieuws</b></div><div class="nslides" id="nslides">${N.map(n=>`<div class="ns" style="--gc:${n.gc}"><div class="in">${TROPHY}<div><h4>${esc(n.title)}</h4><p>${esc(n.text)}</p><button class="go" onclick="${n.act}">${esc(n.btn)} ${IC.chev}</button></div></div></div>`).join("")}</div>${N.length>1?`<div class="ndots" id="ndots">${N.map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}</section>`;
  const run=comps.filter(c=>!isDone(c));
  if(run.length)h+=`<div class="sec">Lopende competities · ${esc(GM[game].n)}</div>`+run.slice(0,3).map(c=>compBig(c)).join("")+(run.length>3?`<button class="go alt" style="margin:0 0 12px" onclick="go('comps')">Alle competities (${comps.length})</button>`:"");
@@ -904,6 +986,7 @@ function teamDetail(n){
  const PL=T?teamPlayers(T):[],PR=isP()&&PN[pkey(n)];
  if(PR){const TT=teamsOf(PR.id);if(TT.length)h+=`<div class="sec">Zit in teams</div><div class="list">${TT.map(teamLink).join("")}</div>`}
  if(PL.length)h+=`<div class="sec">Selectie</div><div class="card"><div class="squad">${PL.map(p=>`<button class="sq" ${p.id?`onclick="openPlayer('${p.id}')"`:"disabled"}>${pav(p)}${esc(p.name)}${T&&p.id&&T.founder===p.id?`<small>👑 Leider</small>`:""}</button>`).join("")}</div></div>`;
+ {const TMd=T?RAWMED.filter(m=>m.team===T.id||(m.players||[]).some(x=>teamPlayers(T).some(p=>p.id===x))).sort((a,b)=>(b.created||0)-(a.created||0)):[];if(TMd.length)h+=`<div class="sec">Media</div><div class="mstrip">${TMd.map(mTile).join("")}</div>`}
  h+=`<div class="sec">Competities</div>`+(cs.length?`<div class="list">`+cs.map(c=>{let st;if(c.type==="league"){const rows=standRows(c),i=rows.findIndex(x=>x.n===who(c));st=`Plek ${i+1} van ${rows.length}`}else st=koStatus(c,who(c));return `<button class="li" onclick="openComp('${c.id}')">${c.type==="league"?`<span class="rank ${rk(standRows(c).findIndex(x=>x.n===who(c)))}">${standRows(c).findIndex(x=>x.n===who(c))+1}</span>`:`<span class="nicon" style="width:auto">${IC.trophy}</span>`}<div><b>${esc(c.name)}</b><span>${club?esc(who(c))+" · ":""}${c.type==="league"?"Iedereen tegen elkaar":"Knock-out"}${st?" · "+st:""}</span></div>${IC.chev}</button>`}).join("")+`</div>`:`<div class="card empty">Doet nog niet mee aan een competitie.</div>`);
  h+=`<div class="sec">Volgende wedstrijden</div>`+(up.length?up.map(upRow).join(""):`<div class="card empty">Geen wedstrijden gepland.</div>`);
  h+=`<div class="sec">Uitslagen</div>`+(res.length?res.map(m=>resRow(m,isMe(m.a)&&!isMe(m.b)?m.a:isMe(m.b)&&!isMe(m.a)?m.b:null)).join(""):`<div class="card empty">Nog geen wedstrijden gespeeld.</div>`);
@@ -1332,7 +1415,7 @@ applyGame();render();
  firebase.auth().onAuthStateChanged(u=>{admin=canWrite=!!u&&u.email===ADMIN_EMAIL;ME=null;watchEmails(admin);watchInvites(!!u);if(u&&!admin)linkMe(u);else render()});
  firebase.auth().getRedirectResult().catch(()=>{});
  const sub=(c,f)=>db.collection(c).onSnapshot(s=>{f(s.docs.map(d=>({id:d.id,...d.data()})));applyGame();render()},e=>console.error(c,e));
- sub("matches",x=>RAWM=x);sub("teams",x=>RAWT=x);sub("tourns",x=>RAWTO=x);sub("comps",x=>RAWC=x);sub("players",x=>RAWP=x);
+ sub("matches",x=>RAWM=x);sub("teams",x=>RAWT=x);sub("tourns",x=>RAWTO=x);sub("comps",x=>RAWC=x);sub("players",x=>RAWP=x);sub("media",x=>RAWMED=x);
  render();
 })();
 </script>
