@@ -458,6 +458,7 @@ th{color:var(--mu)}
 .slip .lg:first-of-type{margin-top:10px}
 .slip .lg div{flex:1;min-width:0}.slip .lg div span{display:block;color:var(--mu);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slip .lg b{font-variant-numeric:tabular-nums}
+.slip .lg.sm{color:var(--gold);font-size:13px;border-top:1px dashed var(--line);padding:5px 0 8px}.slip .lg.sm b{color:var(--gold)}.slip .lg.sm::after{content:"";width:26px}
 .slip .lg button{background:none;border:0;color:var(--mu);cursor:pointer;padding:4px;font-size:18px;line-height:1}
 .stk{display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap}
 .stk input{width:80px;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:700 17px var(--fd);text-align:center}
@@ -908,22 +909,39 @@ function totoModel(g){TOTOC=TOTOC||{};if(TOTOC[g])return TOTOC[g];
 function toOdd(p){p=Math.min(.96,Math.max(.04,p));return Math.min(25,Math.max(1.03,Math.round(100/(p*1.07))/100))}
 // kansen per uitslag: winkans uit de ratings, aantal goals/kronen uit vorige uitslagen
 function pmf(l,cap){const a=[];let t=Math.exp(-l),s=0;for(let i=0;i<cap;i++){a.push(t);s+=t;t*=l/(i+1)}a.push(Math.max(0,1-s));return a}
-function markets(c,g){const gm=cg(c),M=totoModel(gm),ra=M.R[g.a]??1500,rb=M.R[g.b]??1500,cl=gm==="clash";
+// kansmodel per wedstrijd: een tabel met de kans op elke uitslag, die klopt met de winkansen uit de ratings
+function scoreModel(c,g){const ck="sm|"+c.id+"|"+g.key;TOTOC=TOTOC||{};if(TOTOC[ck])return TOTOC[ck];
+ const gm=cg(c),M=totoModel(gm),ra=M.R[g.a]??1500,rb=M.R[g.b]??1500,cl=gm==="clash";
  const p=Math.min(.94,Math.max(.06,1/(1+Math.exp((rb-ra)/220)))),d=c.type==="league"?M.dr:0,p1=p*(1-d),p2=(1-p)*(1-d);
  const own=[...(M.tots[g.a]||[]),...(M.tots[g.b]||[])],lam=Math.max(.6,(own.reduce((x,y)=>x+y,0)+3*M.mean)/(own.length+3));
  const sh=Math.min(.8,Math.max(.2,.5+(p-.5)*.7)),A=pmf(Math.max(.15,lam*sh),cl?3:12),B=pmf(Math.max(.15,lam*(1-sh)),cl?3:12);
- const P=f=>{let s=0;A.forEach((x,i)=>B.forEach((y,j)=>{if(f(i,j))s+=x*y}));return s};
- const pw1=P((i,j)=>i>j),pw2=P((i,j)=>j>i);
+ const W=A.map(x=>B.map(y=>x*y));let r1=0,rd=0,r2=0;W.forEach((row,i)=>row.forEach((v,j)=>{if(i>j)r1+=v;else if(i<j)r2+=v;else rd+=v}));
+ W.forEach((row,i)=>row.forEach((v,j)=>{row[j]=i>j?v*p1/r1:i<j?v*p2/r2:(rd?v*d/rd:0)}));
+ const P=f=>{let s=0;W.forEach((row,i)=>row.forEach((v,j)=>{if(v&&f(i,j))s+=v}));return s};
+ return TOTOC[ck]={gm,cl,p1,p2,d,lam,P}}
+function markets(c,g){const{gm,cl,p1,p2,d,lam,P}=scoreModel(c,g);
  let main=.5,best=9;for(let l=.5;l<=(cl?5.5:Math.ceil(lam*2)+.5);l++){const q=Math.abs(P((i,j)=>i+j>l)-.5);if(q<best){best=q;main=l}}
  const lines=[main-1,main,main+1].filter(l=>l>=.5&&(!cl||l<=5.5)),U=unitOf(gm),o=(s,lab,pr,l)=>({s,lab,o:toOdd(pr),l:l||0});
  const L=[{m:"1x2",t:"Winnaar",o:[o("1","1 · "+g.a,p1),...(d?[o("x","X · Gelijk",d)]:[]),o("2","2 · "+g.b,p2)]},
-  {m:"ou",t:"Aantal "+U,main:true,o:[o("o",`Meer dan ${fmtT(main)} ${U}`,P((i,j)=>i+j>main),main),o("u",`Minder dan ${fmtT(main)}`,P((i,j)=>i+j<main),main)]}];
+  {m:"ou",t:"Aantal "+U,o:[o("o",`Meer dan ${fmtT(main)} ${U}`,P((i,j)=>i+j>main),main),o("u",`Minder dan ${fmtT(main)}`,P((i,j)=>i+j<main),main)]}];
  if(d)L.push({m:"dc",t:"Dubbele kans (lage odds, meer kans)",o:[o("1x","1X · "+g.a+" of gelijk",p1+d),o("x2","X2 · Gelijk of "+g.b,p2+d),o("12","12 · Geen gelijkspel",p1+p2)]});
  lines.filter(l=>l!==main).forEach(l=>L.push({m:"ou",t:`Aantal ${U}: ${fmtT(l)}`,o:[o("o",`Meer dan ${fmtT(l)} ${U}`,P((i,j)=>i+j>l),l),o("u",`Minder dan ${fmtT(l)}`,P((i,j)=>i+j<l),l)]}));
  L.push({m:"bt",t:cl?"Pakken allebei minstens 1 kroon?":"Scoren allebei?",o:[o("j","Ja",P((i,j)=>i>0&&j>0)),o("n","Nee",P((i,j)=>!(i>0&&j>0)))]});
- L.push({m:"hc",t:cl?"Winnen met 2+ kronen verschil":"Winnen met 2+ goals verschil",o:[o("1",g.a,pw1?p1*P((i,j)=>i-j>=2)/pw1:0),o("2",g.b,pw2?p2*P((i,j)=>j-i>=2)/pw2:0)]});
+ L.push({m:"hc",t:cl?"Winnen met 2+ kronen verschil":"Winnen met 2+ goals verschil",o:[o("1",g.a,P((i,j)=>i-j>=2)),o("2",g.b,P((i,j)=>j-i>=2))]});
  if(cl)L.push({m:"k3",t:"Wordt het een 3 kronen-winst?",o:[o("j","Ja",P((i,j)=>i>=3||j>=3)),o("n","Nee",P((i,j)=>i<3&&j<3))]});
  return L}
+// klopt deze keuze bij uitslag a-b?
+function legOk(L,a,b){const r=a>b?"1":a<b?"2":"x";
+ if(L.m==="ou")return L.s==="o"?a+b>L.l:a+b<L.l;
+ if(L.m==="dc")return L.s.includes(r);
+ if(L.m==="bt")return(a>0&&b>0)===(L.s==="j");
+ if(L.m==="hc")return L.s==="1"?a-b>=2:b-a>=2;
+ if(L.m==="k3")return(a>=3||b>=3)===(L.s==="j");
+ return r===L.s}
+// meerdere keuzes op 1 wedstrijd: samen gerekend (want ze hangen van elkaar af)
+function gameOdds(legs){if(legs.length===1)return legs[0].o;const c=RAWC.find(x=>x.id===legs[0].c),g=c&&allGames(c).find(x=>x.key===legs[0].k);if(!g)return 0;
+ const p=scoreModel(c,g).P((i,j)=>legs.every(L=>legOk(L,i,j)));return p<.002?0:toOdd(p)}
+function groupLegs(legs){const G={},o=[];legs.forEach(L=>{const k=L.c+"|"+L.k;if(!G[k]){G[k]=[];o.push(k)}G[k].push(L)});return o.map(k=>G[k])}
 function oddFor(c,g,m,sel,l){for(const k of markets(c,g))if(k.m===m)for(const x of k.o)if(x.s===sel&&(m!=="ou"||x.l===l))return x.o;return 0}
 function legLabel(L){const U=unitOf(L.g),cl=L.g==="clash";
  if(L.m==="ou")return `${L.s==="o"?"Meer":"Minder"} dan ${fmtT(L.l)} ${U}`;
@@ -933,29 +951,23 @@ function legLabel(L){const U=unitOf(L.g),cl=L.g==="clash";
  if(L.m==="k3")return "3 kronen-winst: "+(L.s==="j"?"ja":"nee");
  return L.s==="1"?L.a+" wint":L.s==="2"?L.b+" wint":"Gelijkspel"}
 function legRes(L){const c=RAWC.find(x=>x.id===L.c);if(!c)return"void";const g=allGames(c).find(x=>x.key===L.k);if(!g||g.a!==L.a||g.b!==L.b)return"void";
- const sc=(c.scores||{})[L.k];if(!sc)return"open";const a=sc[0],b=sc[1],r=a>b?"1":a<b?"2":"x";let ok;
- if(L.m==="ou")ok=L.s==="o"?a+b>L.l:a+b<L.l;
- else if(L.m==="dc")ok=L.s.includes(r);
- else if(L.m==="bt")ok=(a>0&&b>0)===(L.s==="j");
- else if(L.m==="hc")ok=L.s==="1"?a-b>=2:b-a>=2;
- else if(L.m==="k3")ok=(a>=3||b>=3)===(L.s==="j");
- else ok=r===L.s;
- return ok?"won":"lost"}
+ const sc=(c.scores||{})[L.k];if(!sc)return"open";return legOk(L,sc[0],sc[1])?"won":"lost"}
 function betRes(b){const R=(b.legs||[]).map(legRes);
  if(R.includes("lost"))return{st:"lost",pay:0,R};if(R.includes("open"))return{st:"open",pay:0,R};
- const o=b.legs.reduce((x,L,i)=>x*(R[i]==="void"?1:L.o),1);
+ let o=1;const seen=new Set();b.legs.forEach((L,i)=>{if(R[i]==="void")return;if(L.go){const k=L.c+"|"+L.k;if(!seen.has(k)){seen.add(k);o*=L.go}}else o*=L.o});
  return{st:R.every(r=>r==="void")?"void":"won",pay:Math.round(b.stake*o*10)/10,R}}
 function balOf(uid){let t=TOTO_START;RAWBET.filter(b=>b.by===uid).forEach(b=>{t-=b.stake;const r=betRes(b);if(r.st==="won"||r.st==="void")t+=r.pay});return Math.round(t*10)/10}
 function myBetter(){if(!ME||admin)return null;const pid=myPid(),P=PM[pid];return P?{uid:ME.uid,pid,name:P.name}:null}
-function slipOdds(){return Math.round(SLIP.reduce((x,L)=>x*L.o,1)*100)/100}
+function slipOdds(){return Math.round(groupLegs(SLIP).reduce((x,G)=>x*gameOdds(G),1)*100)/100}
 let TTX=new Set();
 function pickBet(cid,key,m,sel,l){const c=RAWC.find(x=>x.id===cid),g=c&&allGames(c).find(x=>x.key===key);if(!g)return;l=Number(l)||0;
- const i=SLIP.findIndex(L=>L.c===cid&&L.k===key);
- if(i>=0&&SLIP[i].m===m&&SLIP[i].s===sel&&SLIP[i].l===l){SLIP.splice(i,1);render();return}
- if(i<0&&SLIP.length>=10){alert("Maximaal 10 keuzes in één combi");return}
+ const i=SLIP.findIndex(L=>L.c===cid&&L.k===key&&L.m===m);
+ if(i>=0&&SLIP[i].s===sel&&SLIP[i].l===l){SLIP.splice(i,1);render();return}
+ if(i<0&&SLIP.length>=10){alert("Maximaal 10 keuzes in je wedbon");return}
  const L={c:cid,k:key,g:cg(c),a:g.a,b:g.b,m,s:sel,l,o:oddFor(c,g,m,sel,l)};if(!L.o)return;
- if(i>=0){SLIP[i]=L;alert("Per wedstrijd kan er één keuze in je wedbon, je keuze is vervangen")}else SLIP.push(L);
- render()}
+ const T=[...SLIP];if(i>=0)T[i]=L;else T.push(L);
+ if(!gameOdds(T.filter(x=>x.c===cid&&x.k===key))){alert("Deze keuzes kunnen niet allebei uitkomen, kies iets anders");return}
+ SLIP=T;render()}
 function stakeVal(){const e=$("#stake");return e?Math.floor(Number(e.value)||0):0}
 function stakeSet(v){const e=$("#stake");if(e){e.value=v;stakeUpd()}}
 function stakeUpd(){const w=$("#winv");if(w)w.textContent=fmtT(stakeVal()*slipOdds())}
@@ -967,7 +979,8 @@ async function placeBet(){
   if(!g||(c.scores||{})[L.k]){SLIP=SLIP.filter(x=>x!==L);render();alert("Een wedstrijd uit je wedbon is al gespeeld en is eruit gehaald");return}
   const o=oddFor(c,g,L.m,L.s,L.l);if(!o){SLIP=SLIP.filter(x=>x!==L);render();alert("Een keuze uit je wedbon kan niet meer");return}
   legs.push({...L,o})}
- const odds=Math.round(legs.reduce((x,L)=>x*L.o,1)*100)/100,b=$("#placeb");if(b){b.disabled=true;b.textContent="Bezig…"}
+ let odds=1;for(const G of groupLegs(legs)){const go=gameOdds(G);if(!go){alert("Deze keuzes kunnen niet allebei uitkomen");return}G.forEach(L=>{if(G.length>1)L.go=go});odds*=go}
+ odds=Math.round(odds*100)/100;const b=$("#placeb");if(b){b.disabled=true;b.textContent="Bezig…"}
  try{await db.collection("bets").doc("bt"+Date.now()+Math.random().toString(36).slice(2,6)).set({by:me.uid,pid:me.pid,name:me.name,legs,stake:st,odds,created:Date.now()});
   SLIP=[];slipOpen=false;ttab="mine";alert("Bet geplaatst! Succes 🍀");render();scrollTop()}
  catch(e){alert(e&&e.code==="permission-denied"?"Wedden mag niet met dit account":"Plaatsen mislukt");if(b){b.disabled=false;b.textContent="Plaats bet"}}}
@@ -983,11 +996,11 @@ function totoHtml(){
  const U=[];[...RAWC].sort((a,b)=>(a.created||0)-(b.created||0)).forEach(c=>{if(tFilter!=="all"&&cg(c)!==tFilter)return;allGames(c).forEach(g=>{if(!(c.scores||{})[g.key]&&g.a&&g.b)U.push({c,g})})});
  if(!U.length)h+=`<div class="card empty">Er staan nu geen wedstrijden open om op te wedden. Zodra er een competitie met nog te spelen wedstrijden is, kun je hier je bets plaatsen.</div>`;
  h+=U.slice(0,60).map(({c,g})=>{const K=markets(c,g),gm=cg(c),G=GM[gm],own=me&&(pkey(g.a)===myN||pkey(g.b)===myN),dis=!me||own?"disabled":"",id=c.id+"|"+g.key;
-  const mine=SLIP.find(L=>L.c===c.id&&L.k===g.key);
-  const btn=(m,x)=>{const on=mine&&mine.m===m&&mine.s===x.s&&mine.l===x.l;return `<button class="ttb ${on?"sel":""}" ${dis} onclick="pickBet('${c.id}','${g.key}','${m}','${x.s}',${x.l})" aria-pressed="${!!on}"><small>${esc(x.lab)}</small><b>${fmtO(x.o)}</b></button>`};
+  const mine=SLIP.filter(L=>L.c===c.id&&L.k===g.key);
+  const btn=(m,x)=>{const on=mine.some(L=>L.m===m&&L.s===x.s&&L.l===x.l);return `<button class="ttb ${on?"sel":""}" ${dis} onclick="pickBet('${c.id}','${g.key}','${m}','${x.s}',${x.l})" aria-pressed="${!!on}"><small>${esc(x.lab)}</small><b>${fmtO(x.o)}</b></button>`};
   const row=k=>`<div class="ttr" style="--n:${k.o.length}">${k.o.map(x=>btn(k.m,x)).join("")}</div>`;
-  const main=K.slice(0,2),extra=K.slice(2),xo=TTX.has(id)||(mine&&!main.some(k=>k.m===mine.m&&k.o.some(x=>x.s===mine.s&&x.l===mine.l)));
-  return `<div class="ttc" style="--gc:${G.c}"><div class="tth"><i></i><span>${G.e} ${esc(G.n)} · ${esc(c.name)} · ${esc(g.label)}</span></div>
+  const main=K.slice(0,2),extra=K.slice(2),xo=TTX.has(id)||mine.some(L=>!main.some(k=>k.m===L.m&&k.o.some(x=>x.s===L.s&&x.l===L.l)));
+  return `<div class="ttc" style="--gc:${G.c}"><div class="tth"><i></i><span>${G.e} ${esc(G.n)} · ${esc(c.name)} · ${esc(g.label)}</span>${mine.length>1?`<span class="bd" style="--bc:var(--gold);margin-left:auto;flex:none">${mine.length} keuzes · ${fmtO(gameOdds(mine))}</span>`:""}</div>
   <div class="ttm"><div class="t">${crest(g.a,30)}<span>${esc(g.a)}</span></div><em>VS</em><div class="t r">${crest(g.b,30)}<span>${esc(g.b)}</span></div></div>
   ${main.map(row).join("")}
   ${xo?extra.map(k=>`<div class="ttl">${esc(k.t)}</div>${row(k)}`).join(""):""}
@@ -995,13 +1008,13 @@ function totoHtml(){
   ${own?`<div class="inf">Je speelt zelf mee, dus op deze wedstrijd kun je niet wedden.</div>`:""}</div>`}).join("");
  if(me&&SLIP.length){const o=slipOdds();
   h+=`<div class="slip" role="region" aria-label="Wedbon"><button class="sh" onclick="slipOpen=!slipOpen;render()" aria-expanded="${slipOpen}"><b>🎟️ Wedbon · ${SLIP.length===1?"enkel":"combi ("+SLIP.length+")"}</b><span class="so">${fmtO(o)}</span><span aria-hidden="true">${slipOpen?"▾":"▴"}</span></button>
-  ${slipOpen?SLIP.map((L,i)=>`<div class="lg"><div>${esc(legLabel(L))}<span>${esc(L.a)} – ${esc(L.b)} · ${esc(GM[L.g].n)}</span></div><b>${fmtO(L.o)}</b><button onclick="SLIP.splice(${i},1);render()" aria-label="Verwijderen">×</button></div>`).join(""):""}
+  ${slipOpen?groupLegs(SLIP).map(G=>G.map(L=>{const i=SLIP.indexOf(L);return `<div class="lg"><div>${esc(legLabel(L))}<span>${esc(L.a)} – ${esc(L.b)} · ${esc(GM[L.g].n)}</span></div><b>${fmtO(L.o)}</b><button onclick="SLIP.splice(${i},1);render()" aria-label="Verwijderen">×</button></div>`}).join("")+(G.length>1?`<div class="lg sm"><div>↳ Samen op ${esc(G[0].a)} – ${esc(G[0].b)}</div><b>${fmtO(gameOdds(G))}</b></div>`:"")).join(""):""}
   <div class="stk"><label for="stake" style="margin:0">Inzet</label><input id="stake" type="number" inputmode="numeric" min="1" max="${Math.floor(bal)}" value="${Math.min(1,Math.floor(bal))}" oninput="stakeUpd()">${[1,2,5].filter(v=>v<=bal).map(v=>`<button onclick="stakeSet(${v})">${v}</button>`).join("")}${bal>=1?`<button onclick="stakeSet(${Math.floor(bal)})">Max</button>`:""}</div>
   <div class="twin"><span>Mogelijke winst</span><b><span id="winv">${fmtT(Math.min(1,Math.floor(bal))*o)}</span> 🪙</b></div>
   ${bal<1?`<div class="inf">Je hebt geen tokens meer om in te zetten.</div>`:`<button class="go" id="placeb" style="margin-top:10px" onclick="placeBet()">Plaats bet</button>`}</div>`}
  return h}
 function betCard(b){const r=betRes(b),cls=r.st,lab={open:`<span class="bd" style="--bc:var(--gold)">⏳ Open</span>`,won:`<span class="bd" style="--bc:var(--win)">✓ Gewonnen</span>`,lost:`<span class="bd" style="--bc:var(--loss)">✗ Verloren</span>`,void:`<span class="bd">↺ Ongeldig</span>`}[r.st];
- return `<div class="btc ${cls}"><div class="bh"><b>${b.legs.length>1?"Combi ("+b.legs.length+")":"Enkel"}</b>${lab}</div>${b.legs.map((L,i)=>{const s=r.R[i],c=RAWC.find(x=>x.id===L.c),sc=c&&(c.scores||{})[L.k];
+ return `<div class="btc ${cls}"><div class="bh"><b>${b.legs.length>1?"Combi ("+b.legs.length+")":"Enkel"}</b>${b.legs.some(L=>L.go)?`<span class="inf" style="margin:0">met keuzes op dezelfde wedstrijd</span>`:""}${lab}</div>${b.legs.map((L,i)=>{const s=r.R[i],c=RAWC.find(x=>x.id===L.c),sc=c&&(c.scores||{})[L.k];
   return `<div class="lg"><span class="ico" style="color:${s==="won"?"var(--win)":s==="lost"?"var(--loss)":"var(--mu)"}">${s==="won"?"✓":s==="lost"?"✗":s==="void"?"↺":"•"}</span><div>${esc(legLabel(L))}<span>${esc(L.a)} – ${esc(L.b)}${sc&&s!=="void"?" · "+sc[0]+"-"+sc[1]:""} · ${esc(GM[L.g]?GM[L.g].n:"")}</span></div><b>${fmtO(L.o)}</b></div>`}).join("")}
   <div class="ft"><span>Inzet <b>${fmtT(b.stake)}</b></span><span>Odds <b>${fmtO(b.odds)}</b></span><span>${r.st==="won"?"Uitbetaald":r.st==="void"?"Terug":r.st==="lost"?"Mogelijke winst was":"Mogelijke winst"} <b>${fmtT(r.st==="won"||r.st==="void"?r.pay:b.stake*b.odds)}</b></span><span>${esc(new Date(b.created).toLocaleDateString("nl-NL",{day:"numeric",month:"short"}))}</span></div></div>`}
 function totoRank(me){const U={};
