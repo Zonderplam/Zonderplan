@@ -443,10 +443,13 @@ th{color:var(--mu)}
 .ttm em{font:italic 800 14px var(--fd);color:var(--mu)}
 .ttr{display:grid;gap:6px;grid-template-columns:repeat(var(--n,3),1fr);margin-top:6px}
 .ttb{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:7px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;font:inherit}
-.ttb small{font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ttb small{font-size:12px;line-height:1.25;color:var(--mu);text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:100%;overflow-wrap:anywhere}
+.ttb{justify-content:space-between}
 .ttb b{font:800 18px/1.1 var(--fd);font-variant-numeric:tabular-nums}
 .ttb.sel{background:var(--gc);border-color:var(--gc);color:#06111c}.ttb.sel small{color:#06111c}
 .ttb:disabled{opacity:.45;cursor:default}
+.ttl{font-size:12px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;margin:12px 2px 0}
+.ttx{display:block;width:100%;margin-top:8px;background:none;border:1px dashed var(--line);border-radius:10px;color:var(--ink);padding:8px;font:700 14px var(--fd);cursor:pointer}
 .slip{position:sticky;bottom:calc(var(--dockh,0px) + 10px);z-index:25;margin-top:14px;background:#0f2236;border:1px solid color-mix(in srgb,var(--gold) 55%,var(--line));border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.55),0 0 18px rgba(245,179,1,.18);padding:12px 14px}
 .slip .sh{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:0;text-align:left}
 .slip .sh b{font:italic 800 19px var(--fd)}
@@ -902,20 +905,42 @@ function totoModel(g){TOTOC=TOTOC||{};if(TOTOC[g])return TOTOC[g];
  const all=L.map(m=>m.sa+m.sb),mean=all.length?all.reduce((x,y)=>x+y,0)/all.length:(g==="clash"?2:3);
  const dr=L.length>=6?Math.min(.35,Math.max(.05,L.filter(m=>m.sa===m.sb).length/L.length)):(g==="clash"?.1:.18);
  return TOTOC[g]={R,tots,mean,dr}}
-function poisCdf(k,l){let s=0,t=Math.exp(-l);for(let i=0;i<=k;i++){s+=t;t*=l/(i+1)}return s}
-function toOdd(p){return Math.min(25,Math.max(1.05,Math.round(100/(p*1.07))/100))}
-function market(c,g){const gm=cg(c),M=totoModel(gm),ra=M.R[g.a]??1500,rb=M.R[g.b]??1500;
- const p=Math.min(.94,Math.max(.06,1/(1+Math.exp((rb-ra)/220)))),d=c.type==="league"?M.dr:0;
+function toOdd(p){p=Math.min(.96,Math.max(.04,p));return Math.min(25,Math.max(1.03,Math.round(100/(p*1.07))/100))}
+// kansen per uitslag: winkans uit de ratings, aantal goals/kronen uit vorige uitslagen
+function pmf(l,cap){const a=[];let t=Math.exp(-l),s=0;for(let i=0;i<cap;i++){a.push(t);s+=t;t*=l/(i+1)}a.push(Math.max(0,1-s));return a}
+function markets(c,g){const gm=cg(c),M=totoModel(gm),ra=M.R[g.a]??1500,rb=M.R[g.b]??1500,cl=gm==="clash";
+ const p=Math.min(.94,Math.max(.06,1/(1+Math.exp((rb-ra)/220)))),d=c.type==="league"?M.dr:0,p1=p*(1-d),p2=(1-p)*(1-d);
  const own=[...(M.tots[g.a]||[]),...(M.tots[g.b]||[])],lam=Math.max(.6,(own.reduce((x,y)=>x+y,0)+3*M.mean)/(own.length+3));
- let line=Math.max(.5,Math.floor(lam)+.5);if(gm==="clash")line=Math.min(line,5.5);
- const pu=Math.min(.94,Math.max(.06,poisCdf(Math.floor(line),lam)));
- return{gm,o1:toOdd(p*(1-d)),ox:d?toOdd(d):0,o2:toOdd((1-p)*(1-d)),line,oo:toOdd(1-pu),ou:toOdd(pu)}}
-function oddFor(c,g,m,sel){const k=market(c,g);return m==="ou"?(sel==="o"?k.oo:k.ou):sel==="1"?k.o1:sel==="2"?k.o2:k.ox}
-function legLabel(L){return L.m==="ou"?`${L.s==="o"?"Meer":"Minder"} dan ${fmtT(L.l)} ${unitOf(L.g)}`:L.s==="1"?L.a+" wint":L.s==="2"?L.b+" wint":"Gelijkspel"}
+ const sh=Math.min(.8,Math.max(.2,.5+(p-.5)*.7)),A=pmf(Math.max(.15,lam*sh),cl?3:12),B=pmf(Math.max(.15,lam*(1-sh)),cl?3:12);
+ const P=f=>{let s=0;A.forEach((x,i)=>B.forEach((y,j)=>{if(f(i,j))s+=x*y}));return s};
+ const pw1=P((i,j)=>i>j),pw2=P((i,j)=>j>i);
+ let main=.5,best=9;for(let l=.5;l<=(cl?5.5:Math.ceil(lam*2)+.5);l++){const q=Math.abs(P((i,j)=>i+j>l)-.5);if(q<best){best=q;main=l}}
+ const lines=[main-1,main,main+1].filter(l=>l>=.5&&(!cl||l<=5.5)),U=unitOf(gm),o=(s,lab,pr,l)=>({s,lab,o:toOdd(pr),l:l||0});
+ const L=[{m:"1x2",t:"Winnaar",o:[o("1","1 · "+g.a,p1),...(d?[o("x","X · Gelijk",d)]:[]),o("2","2 · "+g.b,p2)]},
+  {m:"ou",t:"Aantal "+U,main:true,o:[o("o",`Meer dan ${fmtT(main)} ${U}`,P((i,j)=>i+j>main),main),o("u",`Minder dan ${fmtT(main)}`,P((i,j)=>i+j<main),main)]}];
+ if(d)L.push({m:"dc",t:"Dubbele kans (lage odds, meer kans)",o:[o("1x","1X · "+g.a+" of gelijk",p1+d),o("x2","X2 · Gelijk of "+g.b,p2+d),o("12","12 · Geen gelijkspel",p1+p2)]});
+ lines.filter(l=>l!==main).forEach(l=>L.push({m:"ou",t:`Aantal ${U}: ${fmtT(l)}`,o:[o("o",`Meer dan ${fmtT(l)} ${U}`,P((i,j)=>i+j>l),l),o("u",`Minder dan ${fmtT(l)}`,P((i,j)=>i+j<l),l)]}));
+ L.push({m:"bt",t:cl?"Pakken allebei minstens 1 kroon?":"Scoren allebei?",o:[o("j","Ja",P((i,j)=>i>0&&j>0)),o("n","Nee",P((i,j)=>!(i>0&&j>0)))]});
+ L.push({m:"hc",t:cl?"Winnen met 2+ kronen verschil":"Winnen met 2+ goals verschil",o:[o("1",g.a,pw1?p1*P((i,j)=>i-j>=2)/pw1:0),o("2",g.b,pw2?p2*P((i,j)=>j-i>=2)/pw2:0)]});
+ if(cl)L.push({m:"k3",t:"Wordt het een 3 kronen-winst?",o:[o("j","Ja",P((i,j)=>i>=3||j>=3)),o("n","Nee",P((i,j)=>i<3&&j<3))]});
+ return L}
+function oddFor(c,g,m,sel,l){for(const k of markets(c,g))if(k.m===m)for(const x of k.o)if(x.s===sel&&(m!=="ou"||x.l===l))return x.o;return 0}
+function legLabel(L){const U=unitOf(L.g),cl=L.g==="clash";
+ if(L.m==="ou")return `${L.s==="o"?"Meer":"Minder"} dan ${fmtT(L.l)} ${U}`;
+ if(L.m==="dc")return L.s==="1x"?L.a+" of gelijk":L.s==="x2"?"Gelijk of "+L.b:"Geen gelijkspel";
+ if(L.m==="bt")return (cl?"Allebei een kroon: ":"Allebei scoren: ")+(L.s==="j"?"ja":"nee");
+ if(L.m==="hc")return `${L.s==="1"?L.a:L.b} wint met 2+ verschil`;
+ if(L.m==="k3")return "3 kronen-winst: "+(L.s==="j"?"ja":"nee");
+ return L.s==="1"?L.a+" wint":L.s==="2"?L.b+" wint":"Gelijkspel"}
 function legRes(L){const c=RAWC.find(x=>x.id===L.c);if(!c)return"void";const g=allGames(c).find(x=>x.key===L.k);if(!g||g.a!==L.a||g.b!==L.b)return"void";
- const sc=(c.scores||{})[L.k];if(!sc)return"open";
- if(L.m==="ou"){const t=sc[0]+sc[1];return(L.s==="o"?t>L.l:t<L.l)?"won":"lost"}
- return(sc[0]>sc[1]?"1":sc[0]<sc[1]?"2":"x")===L.s?"won":"lost"}
+ const sc=(c.scores||{})[L.k];if(!sc)return"open";const a=sc[0],b=sc[1],r=a>b?"1":a<b?"2":"x";let ok;
+ if(L.m==="ou")ok=L.s==="o"?a+b>L.l:a+b<L.l;
+ else if(L.m==="dc")ok=L.s.includes(r);
+ else if(L.m==="bt")ok=(a>0&&b>0)===(L.s==="j");
+ else if(L.m==="hc")ok=L.s==="1"?a-b>=2:b-a>=2;
+ else if(L.m==="k3")ok=(a>=3||b>=3)===(L.s==="j");
+ else ok=r===L.s;
+ return ok?"won":"lost"}
 function betRes(b){const R=(b.legs||[]).map(legRes);
  if(R.includes("lost"))return{st:"lost",pay:0,R};if(R.includes("open"))return{st:"open",pay:0,R};
  const o=b.legs.reduce((x,L,i)=>x*(R[i]==="void"?1:L.o),1);
@@ -923,13 +948,13 @@ function betRes(b){const R=(b.legs||[]).map(legRes);
 function balOf(uid){let t=TOTO_START;RAWBET.filter(b=>b.by===uid).forEach(b=>{t-=b.stake;const r=betRes(b);if(r.st==="won"||r.st==="void")t+=r.pay});return Math.round(t*10)/10}
 function myBetter(){if(!ME||admin)return null;const pid=myPid(),P=PM[pid];return P?{uid:ME.uid,pid,name:P.name}:null}
 function slipOdds(){return Math.round(SLIP.reduce((x,L)=>x*L.o,1)*100)/100}
-function pickBet(cid,key,m,sel){const c=RAWC.find(x=>x.id===cid),g=c&&allGames(c).find(x=>x.key===key);if(!g)return;
- const i=SLIP.findIndex(L=>L.c===cid&&L.k===key&&L.m===m);
- if(i>=0&&SLIP[i].s===sel){SLIP.splice(i,1);render();return}
+let TTX=new Set();
+function pickBet(cid,key,m,sel,l){const c=RAWC.find(x=>x.id===cid),g=c&&allGames(c).find(x=>x.key===key);if(!g)return;l=Number(l)||0;
+ const i=SLIP.findIndex(L=>L.c===cid&&L.k===key);
+ if(i>=0&&SLIP[i].m===m&&SLIP[i].s===sel&&SLIP[i].l===l){SLIP.splice(i,1);render();return}
  if(i<0&&SLIP.length>=10){alert("Maximaal 10 keuzes in één combi");return}
- const L={c:cid,k:key,g:cg(c),a:g.a,b:g.b,m,s:sel,l:m==="ou"?market(c,g).line:0,o:oddFor(c,g,m,sel)};
- if(i>=0)SLIP[i]=L;else SLIP.push(L);
- if(SLIP.filter(x=>x.c===cid&&x.k===key).length>1){SLIP=SLIP.filter(x=>!(x.c===cid&&x.k===key&&x.m!==m));alert("Per wedstrijd kan er één keuze in je wedbon")}
+ const L={c:cid,k:key,g:cg(c),a:g.a,b:g.b,m,s:sel,l,o:oddFor(c,g,m,sel,l)};if(!L.o)return;
+ if(i>=0){SLIP[i]=L;alert("Per wedstrijd kan er één keuze in je wedbon, je keuze is vervangen")}else SLIP.push(L);
  render()}
 function stakeVal(){const e=$("#stake");return e?Math.floor(Number(e.value)||0):0}
 function stakeSet(v){const e=$("#stake");if(e){e.value=v;stakeUpd()}}
@@ -940,7 +965,8 @@ async function placeBet(){
  if(!SLIP.length)return;if(st<1){alert("Zet minstens 1 token in");return}if(st>bal){alert("Zoveel tokens heb je niet");return}
  const legs=[];for(const L of SLIP){const c=RAWC.find(x=>x.id===L.c),g=c&&allGames(c).find(x=>x.key===L.k);
   if(!g||(c.scores||{})[L.k]){SLIP=SLIP.filter(x=>x!==L);render();alert("Een wedstrijd uit je wedbon is al gespeeld en is eruit gehaald");return}
-  legs.push({...L,l:L.m==="ou"?market(c,g).line:0,o:oddFor(c,g,L.m,L.s)})}
+  const o=oddFor(c,g,L.m,L.s,L.l);if(!o){SLIP=SLIP.filter(x=>x!==L);render();alert("Een keuze uit je wedbon kan niet meer");return}
+  legs.push({...L,o})}
  const odds=Math.round(legs.reduce((x,L)=>x*L.o,1)*100)/100,b=$("#placeb");if(b){b.disabled=true;b.textContent="Bezig…"}
  try{await db.collection("bets").doc("bt"+Date.now()+Math.random().toString(36).slice(2,6)).set({by:me.uid,pid:me.pid,name:me.name,legs,stake:st,odds,created:Date.now()});
   SLIP=[];slipOpen=false;ttab="mine";alert("Bet geplaatst! Succes 🍀");render();scrollTop()}
@@ -956,13 +982,16 @@ function totoHtml(){
  h+=`<div class="chiprow" style="margin:0 0 12px;flex-wrap:wrap">${F.map(([k,l])=>`<button class="tchip" style="${tFilter===k?"background:var(--top);color:#fff;border-color:var(--top)":""}" onclick="tFilter='${k}';render()">${k==="all"?"":GM[k].e+" "}${l}</button>`).join("")}</div>`;
  const U=[];[...RAWC].sort((a,b)=>(a.created||0)-(b.created||0)).forEach(c=>{if(tFilter!=="all"&&cg(c)!==tFilter)return;allGames(c).forEach(g=>{if(!(c.scores||{})[g.key]&&g.a&&g.b)U.push({c,g})})});
  if(!U.length)h+=`<div class="card empty">Er staan nu geen wedstrijden open om op te wedden. Zodra er een competitie met nog te spelen wedstrijden is, kun je hier je bets plaatsen.</div>`;
- h+=U.slice(0,60).map(({c,g})=>{const k=market(c,g),G=GM[k.gm],own=me&&(pkey(g.a)===myN||pkey(g.b)===myN),dis=!me||own?"disabled":"";
-  const sel=(m,v)=>SLIP.some(L=>L.c===c.id&&L.k===g.key&&L.m===m&&L.s===v)?"sel":"";
-  const btn=(m,v,lab,o)=>`<button class="ttb ${sel(m,v)}" ${dis} onclick="pickBet('${c.id}','${g.key}','${m}','${v}')" aria-pressed="${!!sel(m,v)}"><small>${esc(lab)}</small><b>${fmtO(o)}</b></button>`;
+ h+=U.slice(0,60).map(({c,g})=>{const K=markets(c,g),gm=cg(c),G=GM[gm],own=me&&(pkey(g.a)===myN||pkey(g.b)===myN),dis=!me||own?"disabled":"",id=c.id+"|"+g.key;
+  const mine=SLIP.find(L=>L.c===c.id&&L.k===g.key);
+  const btn=(m,x)=>{const on=mine&&mine.m===m&&mine.s===x.s&&mine.l===x.l;return `<button class="ttb ${on?"sel":""}" ${dis} onclick="pickBet('${c.id}','${g.key}','${m}','${x.s}',${x.l})" aria-pressed="${!!on}"><small>${esc(x.lab)}</small><b>${fmtO(x.o)}</b></button>`};
+  const row=k=>`<div class="ttr" style="--n:${k.o.length}">${k.o.map(x=>btn(k.m,x)).join("")}</div>`;
+  const main=K.slice(0,2),extra=K.slice(2),xo=TTX.has(id)||(mine&&!main.some(k=>k.m===mine.m&&k.o.some(x=>x.s===mine.s&&x.l===mine.l)));
   return `<div class="ttc" style="--gc:${G.c}"><div class="tth"><i></i><span>${G.e} ${esc(G.n)} · ${esc(c.name)} · ${esc(g.label)}</span></div>
   <div class="ttm"><div class="t">${crest(g.a,30)}<span>${esc(g.a)}</span></div><em>VS</em><div class="t r">${crest(g.b,30)}<span>${esc(g.b)}</span></div></div>
-  <div class="ttr" style="--n:${k.ox?3:2}">${btn("1x2","1","1 · "+g.a,k.o1)}${k.ox?btn("1x2","x","X · Gelijk",k.ox):""}${btn("1x2","2","2 · "+g.b,k.o2)}</div>
-  <div class="ttr" style="--n:2">${btn("ou","o","Meer dan "+fmtT(k.line)+" "+unitOf(k.gm),k.oo)}${btn("ou","u","Minder dan "+fmtT(k.line),k.ou)}</div>
+  ${main.map(row).join("")}
+  ${xo?extra.map(k=>`<div class="ttl">${esc(k.t)}</div>${row(k)}`).join(""):""}
+  <button class="ttx" onclick="TTX.has('${id}')?TTX.delete('${id}'):TTX.add('${id}');render()" aria-expanded="${!!xo}">${xo?"Minder opties ▴":`+ ${extra.reduce((n,k)=>n+k.o.length,0)} meer opties ▾`}</button>
   ${own?`<div class="inf">Je speelt zelf mee, dus op deze wedstrijd kun je niet wedden.</div>`:""}</div>`}).join("");
  if(me&&SLIP.length){const o=slipOdds();
   h+=`<div class="slip" role="region" aria-label="Wedbon"><button class="sh" onclick="slipOpen=!slipOpen;render()" aria-expanded="${slipOpen}"><b>🎟️ Wedbon · ${SLIP.length===1?"enkel":"combi ("+SLIP.length+")"}</b><span class="so">${fmtO(o)}</span><span aria-hidden="true">${slipOpen?"▾":"▴"}</span></button>
