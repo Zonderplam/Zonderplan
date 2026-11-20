@@ -3,31 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#00a046">
+<meta name="theme-color" content="#06111c">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Zonderbord</title>
+<title>Zonderplan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700;1,800&display=swap">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
-/* Opzet: groene kopbalk (kleur per spel), witte kaarten op lichtgrijs, teambalk onderin, menu schuift van links in */
+/* Opzet: donker stadion-thema (Zonderplan), neon-groen merk, elk spel zijn eigen neonkleur; zijbalk op desktop, menu + spelersbalk op mobiel */
 :root{
- --top:#00a046;--act:var(--top);--bg:#edf1f5;--card:#fff;--ink:#0b1d44;--mu:#66748c;--line:#e2e7ee;--gold:#f5b301;
- --win:#00a046;--loss:#d93a3a;--draw:#8a96a8;
- --acbg:color-mix(in srgb,var(--top) 12%,var(--card));
- --shadow:0 1px 2px rgba(11,29,68,.08),0 3px 10px rgba(11,29,68,.05);
+ --top:#ff8a1f;--brand:#5ee82a;--act:color-mix(in srgb,var(--top) 78%,#fff);
+ --bg:#06111c;--bg2:#0a1826;--card:#0d1c2b;--card2:#122539;--ink:#eef5ff;--mu:#8fa3b8;--line:#1c3146;--gold:#f5b301;
+ --win:#2fd16b;--loss:#ff5a5a;--draw:#7d8ea3;
+ --acbg:color-mix(in srgb,var(--top) 16%,var(--card));
+ --glow:0 0 0 1px color-mix(in srgb,var(--top) 55%,transparent),0 0 22px color-mix(in srgb,var(--top) 35%,transparent);
+ --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 28px rgba(0,0,0,.35);
  --fd:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
  --fb:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
- color-scheme:light;padding-top:env(safe-area-inset-top,0px)
+ color-scheme:dark;padding-top:env(safe-area-inset-top,0px)
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1120;--card:#141c2d;--ink:#e9eef8;--mu:#8e9bb2;--line:#243049;--act:color-mix(in srgb,var(--top) 62%,#fff);--acbg:color-mix(in srgb,var(--top) 22%,var(--card));--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0b1120;--card:#141c2d;--ink:#e9eef8;--mu:#8e9bb2;--line:#243049;--act:color-mix(in srgb,var(--top) 62%,#fff);--acbg:color-mix(in srgb,var(--top) 22%,var(--card));--shadow:0 1px 2px rgba(0,0,0,.4);color-scheme:dark}
-:root[data-game="fifa"]{--top:#1f4fd6}
-:root[data-game="voetvolley"]{--top:#e2570b}
-:root[data-game="clash"]{--top:#7b2fd0}
+:root[data-game="voetvolley"]{--top:#3ddc3a}
+:root[data-game="fifa"]{--top:#1fa2ff}
+:root[data-game="clash"]{--top:#c13cff}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
@@ -272,6 +272,133 @@ img.club{width:24px;height:24px;object-fit:contain;display:block}
 .cropz input{padding:0;border:0;background:none;accent-color:var(--top);flex:1}
 .cropbtns{display:flex;gap:8px;margin-top:6px}
 .cropbtns .go{margin-top:8px}
+/* ===== Zonderplan-look ===== */
+body{background:radial-gradient(900px 520px at 85% -8%,color-mix(in srgb,var(--top) 16%,transparent),transparent 62%),radial-gradient(800px 480px at 0% 0%,rgba(94,232,42,.08),transparent 60%),linear-gradient(180deg,var(--bg2),var(--bg) 420px);background-attachment:fixed;background-color:var(--bg)}
+body::before{background:var(--bg)}
+.bar{background:rgba(6,17,28,.82);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);color:var(--ink)}
+.bar h1{font:italic 800 24px/1 var(--fd);letter-spacing:.02em;text-transform:none;display:flex;align-items:center;justify-content:center;gap:9px}
+.bar h1 .hd{width:10px;height:10px;border-radius:50%;background:var(--top);box-shadow:0 0 12px var(--top)}
+.ib{color:var(--ink)}.ib:hover{background:rgba(255,255,255,.07)}
+.ib .dot{box-shadow:0 0 0 2px var(--bg)}
+.card,.m,.li,.tc,.stat,.form,.lr,.cc,.gt,.seg{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);box-shadow:var(--shadow)}
+.card,.form,.cc,.tc{border-radius:18px}.m,.li,.lr,.stat{border-radius:14px}
+.li:hover,.tc:hover,.cc:hover,.m.c:hover{border-color:color-mix(in srgb,var(--top) 55%,var(--line))}
+.sec{font:italic 800 17px var(--fd);letter-spacing:.04em;color:var(--ink);text-transform:none;display:flex;align-items:center;gap:8px}
+.sec::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--top);box-shadow:0 0 10px var(--top)}
+.ptitle{font:italic 800 36px/1.05 var(--fd);letter-spacing:.01em}
+.ptitle::after{content:"";display:block;width:56px;height:4px;border-radius:2px;margin-top:8px;background:var(--brand);box-shadow:0 0 14px var(--brand)}
+.ch h2,.ch h3,.cc-name,.thero h2,.chn,.li b,.tc b,.gt b{font-style:italic}
+.go{background:var(--top);color:#061018;border-radius:14px;box-shadow:0 0 22px color-mix(in srgb,var(--top) 40%,transparent);font-style:italic;font-weight:800}
+.go:hover{filter:brightness(1.08)}
+.go.alt{background:var(--card2);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.seg button.sel{background:var(--top);color:#061018;box-shadow:0 0 16px color-mix(in srgb,var(--top) 45%,transparent)}
+input,select{background:var(--bg);border-color:var(--line);color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--top);box-shadow:0 0 0 3px color-mix(in srgb,var(--top) 25%,transparent)}
+.sc{background:#e9f1fb;color:#08131f}
+.sc.o{background:var(--acbg);color:var(--act)}
+.chip{background:rgba(255,255,255,.06);color:var(--mu)}
+.ic{background:var(--card2);border-color:var(--line);color:var(--ink)}
+.bd{background:var(--bg)}
+th{color:var(--mu)}
+.prog{background:rgba(255,255,255,.07)}
+.prog i,.cc::before,.chead::before{box-shadow:0 0 12px var(--gc,var(--top))}
+.empty{color:var(--mu)}
+.win{background:linear-gradient(135deg,color-mix(in srgb,var(--top) 80%,#000),#0b1a28);border:1px solid var(--top);box-shadow:var(--glow)}
+.cfoot{border-top-color:var(--line);color:var(--ink)}
+.cfoot:hover{background:rgba(255,255,255,.04)}
+.round{background:var(--top);color:#061018}
+.crest{box-shadow:inset 0 0 0 calc(var(--s,56px)*.05) rgba(255,255,255,.25),0 0 0 1px rgba(255,255,255,.06)}
+#toast{background:#eef5ff;color:#061018}
+.scrim{background:rgba(0,6,14,.66)}
+
+/* zijmenu / zijbalk */
+.drawer{background:linear-gradient(180deg,#081624,#06111c);border-right:1px solid var(--line);box-shadow:8px 0 40px rgba(0,0,0,.5)}
+.dh{background:none;color:var(--ink);padding-bottom:10px;align-items:flex-start}
+.logo{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-decoration:none}
+.logo .lw{display:flex;align-items:center;gap:10px}
+.dh .logo b{font:italic 800 31px/1 var(--fd);letter-spacing:0;text-transform:none;color:#fff}
+.logo b em{font-style:italic;color:var(--brand);text-shadow:0 0 16px rgba(94,232,42,.55)}
+.logo .sw{width:150px;height:10px}
+.dl{color:var(--mu);font-size:12px;padding-top:16px}
+.di{margin:2px 10px;width:calc(100% - 20px);border-radius:14px;padding:11px 14px;font-weight:600;color:#d7e3ef;border:1px solid transparent}
+.di:hover{background:rgba(255,255,255,.05)}
+.di.on{background:linear-gradient(90deg,rgba(94,232,42,.28),rgba(94,232,42,.08));border-color:rgba(94,232,42,.7);color:#fff;box-shadow:0 0 18px rgba(94,232,42,.25)}
+.di.on svg{color:var(--brand)}
+.di.g{font-weight:600}
+.di.g.on{background:linear-gradient(90deg,color-mix(in srgb,var(--gcol) 30%,transparent),transparent);border-color:color-mix(in srgb,var(--gcol) 70%,transparent);box-shadow:0 0 16px color-mix(in srgb,var(--gcol) 30%,transparent)}
+.di.g.on svg.chk{color:var(--gcol)}
+.gdot{box-shadow:0 0 10px currentColor}
+.di .cnt{margin-left:auto;min-width:24px;height:24px;border-radius:12px;background:var(--brand);color:#061018;font:800 13px/24px var(--fb);text-align:center;padding:0 7px}
+.dpad{display:block;width:96px;height:66px;margin:26px auto 8px;color:rgba(94,232,42,.22)}
+
+/* spelersbalk onderin */
+.dock{background:rgba(6,17,28,.9);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top-color:var(--line)}
+.dk.on .crest,.dk.on .homei{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--top),0 0 16px var(--top)}
+.homei{background:rgba(94,232,42,.12);color:var(--brand)}
+
+/* home */
+.hero{position:relative;text-align:center;padding:26px 8px 18px;margin:0 -4px 6px;overflow:hidden}
+.hero::before,.hero::after{content:"";position:absolute;top:2px;width:92px;height:34px;background:radial-gradient(circle,#fff 0 3px,transparent 4px) 0 0/18px 14px;opacity:.75;filter:drop-shadow(0 0 6px #cfe8ff) blur(.3px);transform:rotate(-12deg)}
+.hero::before{left:-6px}.hero::after{right:-6px;transform:rotate(12deg)}
+.hero h2{margin:0;font:italic 800 clamp(36px,9vw,62px)/1 var(--fd);letter-spacing:-.01em;text-wrap:balance}
+.hero h2 em{color:var(--brand);text-shadow:0 0 22px rgba(94,232,42,.5)}
+.hero p{margin:10px auto 0;color:#c9d6e4;font-size:16px;max-width:42ch}
+.hero .bar2{width:150px;height:4px;margin:14px auto 0;border-radius:2px;background:linear-gradient(90deg,transparent,var(--brand),transparent);box-shadow:0 0 14px var(--brand)}
+.shead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:22px 4px 12px}
+.shead h3{margin:0;display:flex;align-items:center;gap:10px;font:italic 800 24px var(--fd)}
+.shead h3 svg{color:var(--brand)}
+.shead button{background:none;border:0;color:#d7e3ef;font:600 15px var(--fb);cursor:pointer;display:flex;align-items:center;gap:4px}
+.gmodes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.gm{position:relative;aspect-ratio:4/5;max-width:100%;border-radius:20px;border:2px solid var(--gc);background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--gc) 45%,#0b1a28),#07111b 75%);box-shadow:0 0 22px color-mix(in srgb,var(--gc) 45%,transparent),inset 0 0 30px color-mix(in srgb,var(--gc) 25%,transparent);overflow:hidden;cursor:pointer;color:#fff;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;font:inherit;transition:transform .15s}
+.gm:hover{transform:translateY(-3px)}
+.gm .art{position:absolute;inset:0 0 34% 0;display:grid;place-items:center}
+.gm .art svg{width:86%;height:auto;max-height:100%}
+.gm .gi{width:52px;height:52px;border-radius:14px;border:2px solid var(--gc);background:rgba(4,12,20,.75);display:grid;place-items:center;color:var(--gc);box-shadow:0 0 14px color-mix(in srgb,var(--gc) 60%,transparent);position:relative}
+.gm b{position:relative;font:italic 800 clamp(20px,5.4vw,27px)/1.1 var(--fd);margin:8px 6px 14px;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.gm .now{position:absolute;top:10px;right:10px;background:var(--gc);color:#061018;font:800 12px var(--fb);padding:3px 9px;border-radius:99px}
+.gm.on{outline:3px solid #fff;outline-offset:-6px}
+.duo{display:grid;grid-template-columns:1fr;gap:12px;margin-top:16px}
+.nx{position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,var(--card2),var(--card));box-shadow:var(--shadow);text-align:left;padding:0;cursor:pointer;color:var(--ink);font:inherit;width:100%}
+.nx .nh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);font:italic 800 22px var(--fd)}
+.nx .nh svg:first-child{color:var(--ink)}
+.nx .nh .ch2{margin-left:auto;color:var(--mu)}
+.nx .nb{position:relative;padding:14px 16px 16px 16px;display:flex;gap:12px;align-items:flex-start;min-height:104px}
+.nx .nb .ico{color:var(--ink);flex:none;margin-top:2px}
+.nx .nb b{display:block;font:italic 800 21px/1.15 var(--fd)}
+.nx .nb .who{color:#d7e3ef;font-size:15px;margin-top:2px}
+.nx .nb .meta{color:var(--mu);font-size:14px;margin-top:6px;display:flex;align-items:center;gap:6px}
+.nx .ghost{position:absolute;right:-18px;bottom:-26px;width:130px;opacity:.28;pointer-events:none}
+.nx .bar3{position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,transparent,var(--gc,var(--brand)),transparent);box-shadow:0 0 14px var(--gc,var(--brand))}
+.news2{margin-top:16px;border-radius:20px;border:1px solid var(--line);background:linear-gradient(180deg,var(--card2),var(--card));box-shadow:var(--shadow);overflow:hidden;position:relative}
+.news2::before{content:"";position:absolute;left:20%;right:20%;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--brand),transparent);box-shadow:0 0 12px var(--brand)}
+.news2 .nh{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 6px}
+.news2 .nh b{display:flex;align-items:center;gap:10px;font:italic 800 24px var(--fd)}
+.news2 .nh b svg{color:var(--brand)}
+.nslides{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.nslides::-webkit-scrollbar{display:none}
+.ns{flex:0 0 100%;scroll-snap-align:center;padding:10px 14px 14px;display:flex}
+.ns .in{flex:1}
+.ns .in{display:grid;grid-template-columns:minmax(0,40%) 1fr;gap:14px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:12px;background:radial-gradient(120% 120% at 0% 100%,color-mix(in srgb,var(--gc,var(--brand)) 26%,transparent),transparent 60%),#091522;min-height:150px}
+.ns .in svg{width:100%;height:auto;max-height:140px}
+.ns h4{margin:0;font:italic 800 clamp(22px,5vw,30px)/1.05 var(--fd)}
+.ns p{margin:6px 0 10px;color:#c9d6e4;font-size:15px}
+.ns .go{display:inline-flex;align-items:center;gap:6px;width:auto;margin:0;padding:9px 18px;border-radius:99px;background:var(--brand);box-shadow:0 0 18px rgba(94,232,42,.45);font-size:17px}
+.ndots{display:flex;justify-content:flex-end;gap:7px;padding:0 20px 14px}
+.ndots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.25)}
+.ndots i.on{background:var(--brand);box-shadow:0 0 8px var(--brand)}
+@media (min-width:640px){.gmodes{grid-template-columns:repeat(4,minmax(0,1fr))}.gm b{font-size:24px}.duo{grid-template-columns:1fr 1fr}}
+
+/* desktop: vaste zijbalk links */
+@media (min-width:1000px){
+ body{padding-left:280px}
+ .drawer{transform:none;width:280px;box-shadow:none}
+ .scrim{display:none}
+ #menuBtn,.dh .ib{visibility:hidden}
+ .dock{display:none}
+ main{max-width:1040px;padding-bottom:40px}
+ .bar{grid-template-columns:58px 1fr 58px}
+ #toast{bottom:28px}
+}
 #toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:99px;font-size:15px;font-weight:600;display:none;z-index:60;max-width:90%;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 @media (max-width:420px){.ch h2{font-size:22px}.slide{padding-inline:8px}.mid{font-size:28px;min-width:54px}.t{gap:7px;font-size:15px}.sc{min-width:58px;font-size:19px}}
@@ -314,10 +441,10 @@ const firebaseConfig={
 const ADMIN_EMAIL="beheer@zonderbord.nl";
 
 const GM={
- zonderbord:{n:"Zonderbord",e:"🏆",u:"spelers",c:"#00a046"},
- fifa:{n:"FIFA",e:"🎮",u:"spelers",c:"#1f4fd6"},
- voetvolley:{n:"Voetvolley",e:"🏐",u:"spelers",c:"#e2570b"},
- clash:{n:"Clash Royale",e:"⚔️",u:"spelers",c:"#7b2fd0"}
+ voetvolley:{n:"Voetvolley",e:"🏐",u:"spelers",c:"#3ddc3a"},
+ zonderbord:{n:"Zonderbord",e:"🏆",u:"spelers",c:"#ff8a1f"},
+ fifa:{n:"FIFA",e:"🎮",u:"spelers",c:"#1fa2ff"},
+ clash:{n:"Clash Royale",e:"⚔️",u:"spelers",c:"#c13cff"}
 };
 const IC={
  chev:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
@@ -333,6 +460,9 @@ const IC={
  lock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
  unlock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>',
  camera:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+ rank:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-5M10 20V9M15 20v-7M20 20V5"/></svg>',
+ news:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5L6 10H3zM17 9a4 4 0 0 1 0 6M6 14l1 6h3l-1-5"/></svg>',
+ pad:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M7 6h10c3 0 5 3 5.5 7l.4 3c.3 2.4-2.4 3.7-4 2l-2.4-2.5H7.5L5.1 18c-1.6 1.7-4.3.4-4-2l.4-3C2 9 4 6 7 6z"/><path d="M7.5 10v4M5.5 12h4" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1" fill="currentColor"/><circle cx="18" cy="13.4" r="1.1" fill="currentColor"/></svg>',
  x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
  check:'<svg class="chk" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
  whistle:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>'
@@ -347,6 +477,21 @@ let NAV=[],compTab="stand",curName=null;
 let RAWI=[],unsubInv=null,ME=null,mdraft=null,tdraft=null,EMAIL={},EMBY={};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LOGO='<svg width="46" height="52" viewBox="0 0 46 52" aria-hidden="true"><path d="M23 2 43 9v16c0 13-9 21-20 25C12 46 3 38 3 25V9z" fill="#0b1a28" stroke="#5ee82a" stroke-width="3" style="filter:drop-shadow(0 0 5px #5ee82a)"/><path d="M14 20h18c3 0 5 3 5.5 7l.3 2c.2 2-2 3-3.3 1.7L32.4 29H13.6l-2.1 1.7C10.2 32 8 31 8.2 29l.3-2C9 23 11 20 14 20z" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M14.5 23.5v4M12.5 25.5h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="29.5" cy="24.5" r="1.3" fill="#fff"/><circle cx="32" cy="27" r="1.3" fill="#fff"/></svg>';
+// tekeningen per spel (eigen, geen merklogo's)
+const GART={
+ voetvolley:'<svg viewBox="0 0 120 100"><g stroke="#e8fbe8" stroke-width="1.2" opacity=".45"><path d="M0 30h120M0 42h120M0 54h120M0 66h120"/><path d="M8 24v48M22 24v48M36 24v48M50 24v48M64 24v48M78 24v48M92 24v48M106 24v48"/></g><rect x="0" y="22" width="120" height="4" rx="2" fill="#f1fff0" opacity=".85"/><ellipse cx="62" cy="92" rx="32" ry="5" fill="#000" opacity=".35"/><circle cx="62" cy="58" r="28" fill="#f6f9f4"/><path d="M62 43l12 9-4.5 14h-15L50 52z" fill="#17241a"/><path d="M62 30v13M74 52l15-6M69.5 66l9 15M54.5 66l-9 15M50 52l-15-6" stroke="#17241a" stroke-width="3"/><circle cx="62" cy="58" r="28" fill="none" stroke="#cfd8cd" stroke-width="2"/></svg>',
+ zonderbord:'<svg viewBox="0 0 120 100"><path d="M6 86 28 26h64l22 60z" fill="#a8602a"/><path d="M14 80 32 32h56l18 48z" fill="#c98446"/><g stroke="#8a4d1f" stroke-width="1.2" opacity=".55"><path d="M40 32l-12 48M52 32l-6 48M64 32v48M76 32l6 48M88 32l12 48"/></g><g><ellipse cx="44" cy="62" rx="11" ry="5" fill="#111"/><ellipse cx="44" cy="59.5" rx="11" ry="5" fill="#2c2c2c"/><ellipse cx="80" cy="50" rx="10" ry="4.5" fill="#111"/><ellipse cx="80" cy="47.8" rx="10" ry="4.5" fill="#333"/><ellipse cx="64" cy="72" rx="12" ry="5.5" fill="#b58a52"/><ellipse cx="64" cy="69.3" rx="12" ry="5.5" fill="#f0d29e"/><ellipse cx="64" cy="69.3" rx="5" ry="2.2" fill="#d8b47a"/><ellipse cx="58" cy="42" rx="9" ry="4" fill="#b58a52"/><ellipse cx="58" cy="40" rx="9" ry="4" fill="#efd19b"/></g></svg>',
+ fifa:'<svg viewBox="0 0 120 100"><g fill="#fff"><circle cx="16" cy="10" r="2.6"/><circle cx="24" cy="8" r="2.6"/><circle cx="32" cy="10" r="2.6"/><circle cx="88" cy="10" r="2.6"/><circle cx="96" cy="8" r="2.6"/><circle cx="104" cy="10" r="2.6"/></g><path d="M0 74c30-10 90-10 120 0v26H0z" fill="#1b8f3a"/><path d="M0 74c30-10 90-10 120 0" stroke="#bff3c9" stroke-width="1.5" fill="none" opacity=".7"/><path d="M36 30h48c12 0 19 11 21 25l1.4 10c1 8-8 12-13.5 6.5L84 63H36l-8.9 8.5C21.6 77 12.6 73 13.6 65L15 55c2-14 9-25 21-25z" fill="#0d2440" stroke="#7cc8ff" stroke-width="3"/><path d="M36 41v14M29 48h14" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="80" cy="44" r="4" fill="#ffd34d"/><circle cx="88" cy="52" r="4" fill="#5ee82a"/><circle cx="72" cy="52" r="4" fill="#ff6a6a"/><circle cx="80" cy="60" r="4" fill="#7cc8ff"/></svg>',
+ clash:'<svg viewBox="0 0 120 100"><g stroke="#cfd6e6" stroke-width="5" stroke-linecap="round"><path d="M22 88 92 22"/><path d="M98 88 28 22"/></g><g stroke="#8a5a2b" stroke-width="7" stroke-linecap="round"><path d="M22 88l10-10M98 88 88 78"/></g><path d="M30 64 36 28l14 16 10-22 10 22 14-16 6 36z" fill="#ffc83d" stroke="#a8740b" stroke-width="2.5" stroke-linejoin="round"/><rect x="30" y="62" width="60" height="12" rx="3" fill="#f0b01f" stroke="#a8740b" stroke-width="2.5"/><circle cx="60" cy="68" r="3.5" fill="#e0365a"/><circle cx="44" cy="68" r="2.6" fill="#3a8bff"/><circle cx="76" cy="68" r="2.6" fill="#3a8bff"/></svg>'
+};
+const GICO={
+ voetvolley:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="11" rx="1.5"/><path d="M3 10h18M3 13.5h18M7.5 6v11M12 6v11M16.5 6v11"/><path d="M5 17v3M19 17v3" stroke-linecap="round"/></svg>',
+ zonderbord:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="10" cy="14" rx="7" ry="3.2"/><path d="M3 14v2.2c0 1.8 3.1 3.2 7 3.2s7-1.4 7-3.2V14"/><ellipse cx="15" cy="8" rx="6" ry="2.7"/><path d="M9 8v1.8c0 1.5 2.7 2.7 6 2.7s6-1.2 6-2.7V8"/></svg>',
+ fifa:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M7 6h10c3 0 5 3 5.5 7l.4 3c.3 2.4-2.4 3.7-4 2l-2.4-2.5H7.5L5.1 18c-1.6 1.7-4.3.4-4-2l.4-3C2 9 4 6 7 6z"/><path d="M7.5 10v4M5.5 12h4" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1" fill="currentColor"/><circle cx="18" cy="13.4" r="1.1" fill="currentColor"/></svg>',
+ clash:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 17 5 7l4.5 4.5L12 5l2.5 6.5L19 7l1 10z"/><path d="M4 20h16"/></svg>'
+};
+const TROPHY='<svg viewBox="0 0 140 120" aria-hidden="true"><ellipse cx="70" cy="112" rx="40" ry="6" fill="#000" opacity=".45"/><rect x="44" y="94" width="52" height="14" rx="3" fill="#1b1410"/><rect x="50" y="86" width="40" height="10" rx="2" fill="#c8901d"/><path d="M62 70h16v18H62z" fill="#d9a02a"/><path d="M38 12h64v12c0 28-14 46-32 46S38 52 38 24z" fill="#f2bf3a"/><path d="M38 18H22c0 20 10 30 22 32M102 18h16c0 20-10 30-22 32" stroke="#e0a92a" stroke-width="6" fill="none"/><path d="M52 18c0 22 6 36 14 40" stroke="#fff3c2" stroke-width="5" stroke-linecap="round" opacity=".65" fill="none"/><path d="M38 12h64" stroke="#ffe08a" stroke-width="4"/></svg>';
 let tt;window.alert=m=>{const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(tt);tt=setTimeout(()=>{t.style.display="none"},3200)};
 try{const sg=localStorage.getItem("zb-game");if(GM[sg])game=sg}catch(e){}
 
@@ -605,21 +750,23 @@ function applyGame(){const f=x=>(x.game||"zonderbord")===game;matches=RAWM.filte
 // ---- opbouw
 function chrome(){
  document.documentElement.dataset.game=game;
- const G=GM[game];document.title=G.n;$("#h1").textContent=G.n;
- const mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.content=G.c;
+ const G=GM[game];document.title="Zonderplan · "+G.n;$("#h1").innerHTML=`<span class="hd" aria-hidden="true"></span>${esc(G.n)}`;
+ const mc=document.querySelector('meta[name="theme-color"]');if(mc)mc.content="#06111c";
  const rb=$("#rightBtn");
  if(admin&&canWrite){rb.innerHTML=IC.plus;rb.setAttribute("aria-label","Nieuw toevoegen");rb.onclick=()=>go("add")}
  else{rb.innerHTML=(ME&&PM[myPid()]?pcrest(PM[myPid()],34):IC.user)+(myInvites().length?`<span class="dot" aria-label="Uitnodiging"></span>`:"");rb.setAttribute("aria-label","Mijn profiel");rb.onclick=()=>{const m=ME&&PM[myPid()];if(m)openPerson(m.name);else go("me")}}
  const N=names();
  const items=dockItems();
  $("#dock").innerHTML=`<button class="dk ${view==="home"?"on":""}" onclick="go('home')"><span class="homei">${IC.home}</span><span class="nm">Home</span></button>`+(items.length?`<span class="dsep"></span>`:"")+items.join("");
- const nav=[["me","Mijn profiel",IC.user],["home","Home",IC.home],["program","Programma",IC.cal],["results","Uitslagen",IC.list],["comps","Competities",IC.trophy],["teams","Teams",IC.team],["players","Spelers",IC.user],["ranks","Ranks",IC.medal]];
- if(admin&&canWrite)nav.push(["add","Nieuw toevoegen",IC.plus]);
- $("#drawer").innerHTML=`<div class="dh"><div><b>Zonderbord</b><small>Uitslagen · competities · ${G.u}</small></div><button class="ib" onclick="closeDrawer()" aria-label="Menu sluiten">${IC.x}</button></div>
- <div class="dl">Spel</div>${Object.keys(GM).map(k=>`<button class="di ${game===k?"on":""}" onclick="setGame('${k}')"><span class="gdot" style="background:${GM[k].c}"></span>${GM[k].e} ${GM[k].n}${game===k?IC.check:""}</button>`).join("")}
- <div class="dl">Menu</div>${nav.map(([k,l,ic])=>`<button class="di ${view===k?"on":""}" onclick="go('${k}')">${ic}${l}</button>`).join("")}
- <div class="dl">Beheer</div>${admin?`<button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di" onclick="go('login')">${IC.lock}Inloggen met code</button>`}
- ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}`;
+ const nav=[["home","Home",IC.home],["program","Programma",IC.cal],["comps","Competities",IC.trophy],["results","Uitslagen",IC.list],["teams","Teams",IC.team],["players","Spelers",IC.user],["ranks","Ranks",IC.rank]];
+ const inv=myInvites().length;
+ $("#drawer").innerHTML=`<div class="dh"><button class="logo" onclick="go('home')" style="background:none;border:0;padding:0;cursor:pointer" aria-label="Zonderplan, naar Home"><span class="lw">${LOGO}<b>Zonder<em>plan</em></b></span><svg class="sw" viewBox="0 0 150 10" aria-hidden="true"><path d="M2 8 Q75 -2 148 6" stroke="#5ee82a" stroke-width="3" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #5ee82a)"/></svg></button><button class="ib" onclick="closeDrawer()" aria-label="Menu sluiten">${IC.x}</button></div>
+ <div class="dl">Menu</div>${nav.map(([k,l,ic])=>`<button class="di ${view===k||(k==="teams"&&view==="team")||(k==="players"&&view==="person")?"on":""}" onclick="go('${k}')">${ic}${l}</button>`).join("")}
+ <div class="dl">Gamemodes</div>${Object.keys(GM).map(k=>`<button class="di g ${game===k?"on":""}" style="--gcol:${GM[k].c}" onclick="setGame('${k}')"><span class="gdot" style="background:${GM[k].c};color:${GM[k].c}"></span>${GM[k].n}${game===k?IC.check:""}</button>`).join("")}
+ <div class="dl">Account</div><button class="di ${view==="me"?"on":""}" onclick="go('me')">${IC.user}Mijn profiel${inv?`<span class="cnt" aria-label="${inv} uitnodiging${inv===1?"":"en"}">${inv}</span>`:""}</button>
+ ${admin&&canWrite?`<button class="di ${view==="add"?"on":""}" onclick="go('add')">${IC.plus}Beheer</button><button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di ${view==="login"?"on":""}" onclick="go('login')">${IC.lock}Beheer</button>`}
+ ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}
+ <svg class="dpad" viewBox="0 0 96 66" aria-hidden="true"><path d="M24 8h48c12 0 20 10 22 24l2 14c1 10-9 16-17 9l-10-9H27l-10 9c-8 7-18 1-17-9l2-14C4 18 12 8 24 8z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M28 24v16M20 32h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="66" cy="27" r="3.5" fill="currentColor"/><circle cx="74" cy="35" r="3.5" fill="currentColor"/></svg>`;
 }
 function render(){
  RTC=null;chrome();
@@ -642,21 +789,28 @@ function render(){
 }
 function pageTitle(t,backFn){return (backFn?`<button class="back" onclick="${backFn}">${IC.back} Terug</button>`:"")+`<div class="ptitle">${t}</div>`}
 
+function firstName(){const m=ME&&PM[myPid()];if(!m)return "";const f=String(m.name).trim().split(/\s+/)[0]||"";return f.replace(/\./g,"").length<3?String(m.name).trim():f}
+function newsItems(){
+ const L=[];
+ RAWC.forEach(c=>{const g=cg(c);if(isDone(c)){const w=c.type==="league"?(standRows(c)[0]||{}).n:koRounds(c).champ;if(w)L.push({t:doneAt(c),gc:GM[g].c,title:"🏆 "+w+" wint!",text:`${c.name} bij ${GM[g].n} is afgelopen.`,btn:"Bekijk",act:`openCompIn('${g}','${c.id}')`})}
+  else L.push({t:c.created||0,gc:GM[g].c,title:"Nieuwe competitie!",text:`${c.name} is begonnen bij ${GM[g].n}${c.ranked?" en telt mee voor de ranks":""}.`,btn:"Bekijk",act:`openCompIn('${g}','${c.id}')`})});
+ RAWT.filter(t=>t.name).forEach(t=>{const f=t.founder&&PM[t.founder];L.push({t:t.created||0,gc:"#5ee82a",title:"Nieuw team: "+t.name,text:f?`Opgericht door ${f.name}. Wil je erbij? Vraag de leider om een uitnodiging.`:"Bekijk de selectie en de leider.",btn:"Bekijk team",act:`openClub(${jsq(t.name)})`})});
+ return L.sort((a,b)=>b.t-a.t).slice(0,5)}
 function homeHtml(){
- const up=upcoming().slice(0,6),res=allRes().sort((a,b)=>b.t-a.t),last=res[0];window._up=up;
- let h=`<div class="card"><div class="ch"><div><h2>Volgende wedstrijd</h2><div class="sub" id="nmsub">${up.length?esc(up[0].c.name)+" · "+esc(up[0].g.label):"Nog niets gepland"}</div></div>${up.length>1?`<div class="dots" id="dots">${up.map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}</div>`;
- if(up.length)h+=`<div class="slides" id="slides">${up.map(x=>`<div class="slide"><div class="vs"><button class="side" onclick="openTeam(${tIdx(x.g.a)})">${crest(x.g.a,68)}<b>${esc(x.g.a)}</b></button><div class="mid">VS<small>${esc(x.g.label)}</small></div><button class="side" onclick="openTeam(${tIdx(x.g.b)})">${crest(x.g.b,68)}<b>${esc(x.g.b)}</b></button></div>${oddsHtml(x.g.a,x.g.b)}</div>`).join("")}</div>`;
- else h+=`<div class="empty">Zodra er een competitie is, zie je hier de eerstvolgende wedstrijden.</div>`;
- h+=`<button class="cfoot" onclick="go('program')">Volledig programma ${IC.chev}</button></div>`;
- if(last){const aw=last.sa>last.sb,bw=last.sb>last.sa;
-  h+=`<div class="card"><div class="ch"><div class="news"><span class="nicon">${IC.whistle}</span><div><h3>Laatste uitslag</h3><div class="sub">${esc(ago(last.t)||(last.kind==="c"?last.c.name:"Vriendschappelijk"))}</div></div></div><button class="round" onclick="go('results')" aria-label="Alle uitslagen">${IC.list}</button></div>
-  <div class="nbody">${aw?`<b>${esc(last.a)}</b>`:esc(last.a)} ${last.sa} – ${last.sb} ${bw?`<b>${esc(last.b)}</b>`:esc(last.b)}${last.kind==="c"?`<div class="inf">${esc(last.c.name)} · ${esc(last.label)}</div>`:""}${last.info?`<div class="inf">💬 ${esc(last.info)}</div>`:""}</div></div>`}
+ const up=upcoming(),res=allRes().sort((a,b)=>b.t-a.t),last=res[0],nx=up[0],fn=firstName(),N=newsItems();window._up=up;
+ let h=`<section class="hero"><h2>Welkom${fn?`, <em>${esc(fn)}!</em>`:"!"}</h2><p>Kies een gamemode, bekijk je programma of beheer je team.</p><div class="bar2"></div></section>`;
+ h+=`<div class="shead"><h3>${IC.pad}Gamemodes</h3></div><div class="gmodes">${Object.keys(GM).map(k=>`<button class="gm ${game===k?"on":""}" style="--gc:${GM[k].c}" onclick="setGame('${k}')" aria-pressed="${game===k}">${game===k?`<span class="now">Gekozen</span>`:""}<span class="art" aria-hidden="true">${GART[k]}</span><span class="gi" aria-hidden="true">${GICO[k]}</span><b>${GM[k].n}</b></button>`).join("")}</div>`;
+ h+=`<div class="duo" style="--gc:${GM[game].c}">`;
+ h+=`<button class="nx" onclick="${nx?`openComp('${nx.c.id}')`:`go('program')`}"><div class="nh">${IC.cal}Volgende wedstrijd<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${nx?`<b>${esc(GM[game].n)}</b><div class="who">${esc(nx.g.a)} – ${esc(nx.g.b)}</div><div class="meta">${IC.trophy.replace('width="22" height="22"','width="16" height="16"')}${esc(nx.c.name)} · ${esc(nx.g.label)}</div>`:`<b>Niets gepland</b><div class="who">Zodra er een competitie loopt, zie je hier de eerstvolgende wedstrijd.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button>`;
+ h+=`<button class="nx" onclick="go('results')"><div class="nh">${IC.trophy}Laatste uitslag<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${last?`<b>${esc(GM[game].n)}</b><div class="who">${last.sa>last.sb?`<strong>${esc(last.a)}</strong>`:esc(last.a)} ${last.sa} – ${last.sb} ${last.sb>last.sa?`<strong>${esc(last.b)}</strong>`:esc(last.b)}</div><div class="meta">${esc(last.kind==="c"?last.c.name+" · "+last.label:"Vriendschappelijk")}${ago(last.t)?" · "+esc(ago(last.t)):""}</div>`:`<b>Nog geen uitslagen</b><div class="who">De eerste uitslag verschijnt hier.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button></div>`;
+ if(N.length)h+=`<section class="news2"><div class="nh"><b>${IC.news}Nieuws</b></div><div class="nslides" id="nslides">${N.map(n=>`<div class="ns" style="--gc:${n.gc}"><div class="in">${TROPHY}<div><h4>${esc(n.title)}</h4><p>${esc(n.text)}</p><button class="go" onclick="${n.act}">${esc(n.btn)} ${IC.chev}</button></div></div></div>`).join("")}</div>${N.length>1?`<div class="ndots" id="ndots">${N.map((_,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div>`:""}</section>`;
  const run=comps.filter(c=>!isDone(c));
- if(run.length)h+=`<div class="sec">Lopende competities</div>`+run.slice(0,3).map(c=>compBig(c)).join("")+(run.length>3?`<button class="go alt" style="margin:0 0 12px" onclick="go('comps')">Alle competities (${comps.length})</button>`:"");
- h+=`<div class="stats"><div class="stat"><b>${res.length}</b><span>wedstrijden</span></div><div class="stat"><b>${comps.length}</b><span>competities</span></div><div class="stat"><b>${names().length}</b><span>${GM[game].u}</span></div></div>`;
- if(!names().length)h+=`<div class="empty">Nog geen ${GM[game].u} bij ${GM[game].n}.${admin?" Tik op + rechtsboven om te beginnen.":""}</div>`;
+ if(run.length)h+=`<div class="sec">Lopende competities · ${esc(GM[game].n)}</div>`+run.slice(0,3).map(c=>compBig(c)).join("")+(run.length>3?`<button class="go alt" style="margin:0 0 12px" onclick="go('comps')">Alle competities (${comps.length})</button>`:"");
+ h+=`<div class="stats" style="margin-top:16px"><div class="stat"><b>${res.length}</b><span>wedstrijden</span></div><div class="stat"><b>${comps.length}</b><span>competities</span></div><div class="stat"><b>${names().length}</b><span>${GM[game].u}</span></div></div>`;
  return h}
-function wireSlides(){const s=$("#slides");if(!s)return;const dots=document.querySelectorAll("#dots i");
+function wireSlides(){const ns=$("#nslides");if(ns){const d=document.querySelectorAll("#ndots i");ns.addEventListener("scroll",()=>{const i=Math.round(ns.scrollLeft/ns.clientWidth);d.forEach((x,j)=>x.classList.toggle("on",j===i))},{passive:true})}
+ wireOld()}
+function wireOld(){const s=$("#slides");if(!s)return;const dots=document.querySelectorAll("#dots i");
  s.addEventListener("scroll",()=>{const i=Math.round(s.scrollLeft/s.clientWidth),x=(window._up||[])[i];dots.forEach((d,j)=>d.classList.toggle("on",j===i));if(x)$("#nmsub").textContent=x.c.name+" · "+x.g.label},{passive:true})}
 
 function upRow(x){return `<div class="m c" onclick="openComp('${x.c.id}')"><div class="mr"><div class="t">${crest(x.g.a,32)}<span>${esc(x.g.a)}${tmS(x.g.a)}</span></div><div class="sc o">– : –</div><div class="t r">${crest(x.g.b,32)}<span>${esc(x.g.b)}${tmS(x.g.b)}</span></div></div>${oddsHtml(x.g.a,x.g.b)}<div class="mm"><span><span class="chip">🏆 ${esc(x.c.name)}</span><span class="chip">${esc(x.g.label)}</span></span></div></div>`}
