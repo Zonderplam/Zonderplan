@@ -1062,6 +1062,7 @@ function chrome(){
  ${admin&&canWrite?`<button class="di ${view==="add"?"on":""}" onclick="go('add')">${IC.plus}Beheer</button><button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di ${view==="login"?"on":""}" onclick="go('login')">${IC.lock}Beheer</button>`}
  ${window.firebase&&!isStandalone()?`<button class="di ${view==="install"?"on":""}" onclick="installApp()">${IC.down}App installeren</button>`:""}
  ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}
+ <p class="note" style="opacity:.7">Versie 20 nov · Toto 2.0</p>
  <svg class="dpad" viewBox="0 0 96 66" aria-hidden="true"><path d="M24 8h48c12 0 20 10 22 24l2 14c1 10-9 16-17 9l-10-9H27l-10 9c-8 7-18 1-17-9l2-14C4 18 12 8 24 8z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M28 24v16M20 32h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="66" cy="27" r="3.5" fill="currentColor"/><circle cx="74" cy="35" r="3.5" fill="currentColor"/></svg>`;
 }
 function render(){
