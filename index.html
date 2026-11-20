@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#06111c">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zonderplan">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Zonderplan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js"></script>
 <style>
 /* Opzet: donker stadion-thema (Zonderplan), neon-groen merk, elk spel zijn eigen neonkleur; zijbalk op desktop, menu + spelersbalk op mobiel */
 :root{
@@ -438,6 +445,8 @@ const firebaseConfig={
  measurementId:"G-GKG7VE5GRD"
 };
 // Beheer-account in Firebase Authentication. Het wachtwoord van dit account is je beheercode.
+// Mail bij een nieuwe uitslag (gratis via EmailJS, 200 mails per maand). Vul hier je eigen codes in.
+const MAIL={service:"",template:"",key:""};
 const ADMIN_EMAIL="beheer@zonderbord.nl";
 
 const GM={
@@ -463,6 +472,7 @@ const IC={
  rank:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 20v-5M10 20V9M15 20v-7M20 20V5"/></svg>',
  news:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 10v4h3l7 5V5L6 10H3zM17 9a4 4 0 0 1 0 6M6 14l1 6h3l-1-5"/></svg>',
  pad:'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M7 6h10c3 0 5 3 5.5 7l.4 3c.3 2.4-2.4 3.7-4 2l-2.4-2.5H7.5L5.1 18c-1.6 1.7-4.3.4-4-2l.4-3C2 9 4 6 7 6z"/><path d="M7.5 10v4M5.5 12h4" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1" fill="currentColor"/><circle cx="18" cy="13.4" r="1.1" fill="currentColor"/></svg>',
+ down:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M12 7v7M9 11l3 3 3-3M10 18h4"/></svg>',
  x:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
  check:'<svg class="chk" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
  whistle:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 2.5 21.5 12 12 21.5 2.5 12z"/><circle cx="12" cy="12" r="3.2"/></svg>'
@@ -765,6 +775,7 @@ function chrome(){
  <div class="dl">Gamemodes</div>${Object.keys(GM).map(k=>`<button class="di g ${game===k?"on":""}" style="--gcol:${GM[k].c}" onclick="setGame('${k}')"><span class="gdot" style="background:${GM[k].c};color:${GM[k].c}"></span>${GM[k].n}${game===k?IC.check:""}</button>`).join("")}
  <div class="dl">Account</div><button class="di ${view==="me"?"on":""}" onclick="go('me')">${IC.user}Mijn profiel${inv?`<span class="cnt" aria-label="${inv} uitnodiging${inv===1?"":"en"}">${inv}</span>`:""}</button>
  ${admin&&canWrite?`<button class="di ${view==="add"?"on":""}" onclick="go('add')">${IC.plus}Beheer</button><button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di ${view==="login"?"on":""}" onclick="go('login')">${IC.lock}Beheer</button>`}
+ ${window.firebase&&!isStandalone()?`<button class="di ${view==="install"?"on":""}" onclick="installApp()">${IC.down}App installeren</button>`:""}
  ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}
  <svg class="dpad" viewBox="0 0 96 66" aria-hidden="true"><path d="M24 8h48c12 0 20 10 22 24l2 14c1 10-9 16-17 9l-10-9H27l-10 9c-8 7-18 1-17-9l2-14C4 18 12 8 24 8z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M28 24v16M20 32h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="66" cy="27" r="3.5" fill="currentColor"/><circle cx="74" cy="35" r="3.5" fill="currentColor"/></svg>`;
 }
@@ -782,6 +793,7 @@ function render(){
  else if(view==="person")h=personDetail(curName);
  else if(view==="ranks")h=ranksHtml();
  else if(view==="me")h=meHtml();
+ else if(view==="install")h=installHtml();
  else if(view==="add")h=admin?addHtml():loginHtml();
  else if(view==="login")h=admin?`<div class="ptitle">Beheer</div><div class="card pad">Je bent ingelogd als beheerder. Via de + rechtsboven voeg je uitslagen, competities en ${GM[game].u} toe.<button class="go alt" onclick="logout()">Uitloggen</button></div>`:loginHtml();
  v.innerHTML=h;
@@ -924,6 +936,19 @@ async function tryCode(){
  try{await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL,c);alert("Beheer staat aan");go("home")}
  catch(e){const c=e&&e.code||"";alert(c==="auth/too-many-requests"?"Te vaak geprobeerd, wacht even":c==="auth/operation-not-allowed"?"Inloggen met e-mail staat uit in Firebase (Authentication → Sign-in method → Email/Password)":c==="auth/user-not-found"?"Het account beheer@zonderbord.nl bestaat nog niet in Firebase":c==="auth/network-request-failed"?"Geen internetverbinding met Firebase":["auth/invalid-credential","auth/wrong-password","auth/invalid-login-credentials"].includes(c)?"Verkeerde code, of het account beheer@zonderbord.nl bestaat nog niet in Firebase":"Inloggen mislukt ("+c+")")}
 }
+let installEvt=null;
+function isStandalone(){return matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;try{render()}catch(x){}});
+window.addEventListener("appinstalled",()=>{installEvt=null;alert("Zonderplan staat nu op je beginscherm");try{render()}catch(x){}});
+async function installApp(){
+ if(inApp()){go("me");return}
+ if(installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render();return}
+ view="install";closeDrawer();render();scrollTop()}
+function installHtml(){const ios=isIOS();
+ return `<button class="back" onclick="go('home')">${IC.back} Terug</button><div class="ptitle">App installeren</div><div class="card pad"><div class="rhead"><img src="icon-192.png" alt="" width="64" height="64" style="border-radius:16px"><div class="rn" style="flex:1"><b>Zonderplan</b></div></div><div class="inf">Zet Zonderplan op je beginscherm. Dan open je hem als een gewone app, zonder adresbalk. Het is gratis en je hebt geen app-winkel nodig.</div></div>
+ <div class="sec">${ios?"iPhone of iPad (Safari)":"Android (Chrome)"}</div><div class="card pad"><ol style="margin:0;padding-left:20px;line-height:1.7">${ios?`<li>Open deze pagina in <b>Safari</b>.</li><li>Tik onderin op het <b>deel-icoon</b> (vierkantje met pijl omhoog).</li><li>Scroll en kies <b>Zet op beginscherm</b>.</li><li>Tik rechtsboven op <b>Voeg toe</b>.</li>`:`<li>Open deze pagina in <b>Chrome</b>.</li><li>Tik rechtsboven op <b>⋮</b>.</li><li>Kies <b>App installeren</b> of <b>Toevoegen aan startscherm</b>.</li><li>Tik op <b>Installeren</b>.</li>`}</ol></div>
+ <div class="sec">${ios?"Android (Chrome)":"iPhone of iPad (Safari)"}</div><div class="card pad"><div class="inf" style="margin:0">${ios?"Tik in Chrome op ⋮ en kies <b>App installeren</b>.":"Tik in Safari op het deel-icoon en kies <b>Zet op beginscherm</b>."}</div></div>
+ <div class="sec">Op de computer</div><div class="card pad"><div class="inf" style="margin:0">In Chrome of Edge staat rechts in de adresbalk een <b>installeer-icoontje</b> (computerscherm met pijl). Klik erop en kies <b>Installeren</b>.</div></div>`}
 function inApp(){const u=navigator.userAgent||"";const m=u.match(/Snapchat|Instagram|FBAN|FBAV|FB_IAB|FBIOS|TikTok|musical_ly|BytedanceWebview|Line\/|LinkedInApp|Twitter|Pinterest|WhatsApp|Discord/i);if(m)return m[0].replace(/FBAN|FBAV|FB_IAB|FBIOS/i,"Facebook").replace(/musical_ly|BytedanceWebview/i,"TikTok").replace(/Line\//i,"LINE");return /; wv\)/.test(u)?"een app":""}
 function isIOS(){return /iPhone|iPad|iPod/i.test(navigator.userAgent||"")}
 function copyLink(){const u=location.href.split("#")[0];try{navigator.clipboard.writeText(u).then(()=>alert("Link gekopieerd. Plak hem in Safari of Chrome."),()=>selLink())}catch(e){selLink()}}
@@ -983,7 +1008,7 @@ function resFields(cid,m){
 function rcChange(){$("#rf").innerHTML=resFields($("#rc").value,null)}
 function resForm(m){
  const o=`<option value="">Vriendschappelijk (geen competitie)</option>`+comps.filter(c=>!isDone(c)).map(c=>`<option value="${c.id}">${esc(c.name)} (${modeChip(c)})</option>`).join("");
- return `<div class="sec">${m?"Uitslag bewerken":"Nieuwe uitslag"}</div><div class="form">${m?"":`<label for="rc">Waar hoort deze uitslag bij?</label><select id="rc" onchange="rcChange()">${o}</select>`}<div id="rf">${resFields("",m)}</div><button class="go" onclick="saveResult()">Opslaan</button>${m?`<button class="go alt" onclick="editM=null;go('results')">Annuleren</button>`:""}</div>`;
+ return `<div class="sec">${m?"Uitslag bewerken":"Nieuwe uitslag"}</div><div class="form">${m?"":`<label for="rc">Waar hoort deze uitslag bij?</label><select id="rc" onchange="rcChange()">${o}</select>`}<div id="rf">${resFields("",m)}</div>${mailOn()?`<label style="display:flex;align-items:center;gap:8px;margin-top:14px;color:var(--ink)"><input type="checkbox" id="mailp" style="width:auto" ${m?"":"checked"}> 📧 Mail de spelers de uitslag</label>`:""}<button class="go" onclick="saveResult()">Opslaan</button>${m?`<button class="go alt" onclick="editM=null;go('results')">Annuleren</button>`:""}</div>`;
 }
 function setMode(r){$("#cmode").value=r?"1":"";$("#mOef").className=r?"":"sel";$("#mRank").className=r?"sel":"";$("#mOef").setAttribute("aria-checked",!r);$("#mRank").setAttribute("aria-checked",r);$("#cmodeInf").textContent=r?"De eindstand bepaalt de ranks.":"Telt niet mee voor de ranks."}
 function compForm(c){
@@ -1209,18 +1234,31 @@ async function delPlayer(pid){
 function delPlayerAt(i){const x=allPlayers()[i];if(!x)return;if(x.id)delPlayer(x.id);else delTeam(names().indexOf(x.name))}
 
 // ---- opslaan en verwijderen
+function mailOn(){return !!(window.firebase&&window.emailjs&&MAIL.key&&MAIL.service&&MAIL.template&&admin)}
+async function notifyResult(r){
+ if(!mailOn())return;
+ const link=location.href.split("#")[0],G=GM[game].n;
+ const people=[[r.a,r.sa,r.sb,r.b],[r.b,r.sb,r.sa,r.a]].map(([me,f,t,opp])=>{const p=PN[pkey(me)],em=p&&EMBY[p.id];return em?{em,me,f,t,opp}:null}).filter(Boolean);
+ if(!people.length){alert("Opgeslagen · van deze spelers is geen e-mailadres bekend");return}
+ let ok=0;
+ for(const x of people){
+  try{await emailjs.send(MAIL.service,MAIL.template,{to_email:x.em,to_name:x.me,player_a:r.a,player_b:r.b,score:r.sa+" – "+r.sb,result:x.f>x.t?"Je hebt gewonnen! 🏆":x.f<x.t?"Je hebt verloren.":"Het werd gelijkspel.",opponent:x.opp,game:G,competition:r.where,link},{publicKey:MAIL.key});ok++}catch(e){console.error("mail",e)}
+  await new Promise(z=>setTimeout(z,1100))}
+ alert(ok?`📧 Uitslag gemaild naar ${ok} speler${ok===1?"":"s"}`:"Mailen lukte niet. Controleer je EmailJS-instellingen.")
+}
 async function saveResult(){
+ const mailIt=!!($("#mailp")&&$("#mailp").checked);
  const g=id=>($(id)?$(id).value.trim():""),info=g("#info"),ref=g("#ref"),mode=g("#mode"),sub=g("#sub"),rc=g("#rc"),ta=g("#ta"),tb=g("#tb");
  let sa=+g("#sa")||0,sb=+g("#sb")||0,legs=null;
  if(LEGS()>1){const a2=+g("#sa2")||0,b2=+g("#sb2")||0;legs=[{a:sa,b:sb},{a:a2,b:b2}];sa+=a2;sb+=b2}
  if(MAXP()&&(sa>MAXP()||sb>MAXP())){alert("Maximaal "+MAXP()+" "+U().toLowerCase()+" per team");return}
  if(!rc){const a=g("#a"),b=g("#b");if(!a||!b||a===b){alert("Vul twee verschillende "+GM[game].u+" in");return}
   const old=editM&&matches.find(x=>x.id===editM),n=old?old.n:matches.reduce((m,x)=>Math.max(m,x.n||0),0)+1;
-  if(await put("matches",old?old.id:"m"+Date.now(),{n,t:old?(old.t||old.n):Date.now(),mode,sub,a,b,sa,sb,legs,type:old?old.type:"Vriendschappelijk",ref,info,ta,tb})){alert("Opgeslagen");go("results")}
+  if(await put("matches",old?old.id:"m"+Date.now(),{n,t:old?(old.t||old.n):Date.now(),mode,sub,a,b,sa,sb,legs,type:old?old.type:"Vriendschappelijk",ref,info,ta,tb})){alert("Opgeslagen");go("results");if(mailIt)notifyResult({a,b,sa,sb,where:"Vriendschappelijk"})}
   return}
  const c=comps.find(x=>x.id===rc),key=g("#rg");if(!c||!key){alert("Kies een wedstrijd");return}
  if(c.type==="knockout"&&sa===sb){alert(legs?"Gelijk over de 2 wedstrijden. Bij knock-out moet er een winnaar zijn":"Bij knock-out is geen gelijkspel mogelijk");return}
- if(await storeScore(c,key,sa,sb,{info,ref,mode,sub,ta,tb,legs})){alert("Opgeslagen");go("results")}
+ if(await storeScore(c,key,sa,sb,{info,ref,mode,sub,ta,tb,legs})){alert("Opgeslagen");go("results");const gm=allGames(c).find(x=>x.key===key);if(mailIt&&gm)notifyResult({a:gm.a,b:gm.b,sa,sb,where:c.name+" · "+gm.label})}
 }
 function pruneLater(rest,key){const[r,i]=key.slice(1).split("-").map(Number);
  Object.keys(rest.scores).forEach(k=>{const[r2,i2]=k.slice(1).split("-").map(Number);if(r2>r&&i2===Math.floor(i/2**(r2-r))){delete rest.scores[k];delete rest.meta[k]}})}
@@ -1236,7 +1274,7 @@ async function saveScore(cid,key,ko){
  if(a===""||b===""){alert("Vul beide scores in");return}
  if(LEGS()>1){const a2=$("#a2_"+key).value,b2=$("#b2_"+key).value;if(a2===""||b2===""){alert("Vul ook de 2e wedstrijd in");return}legs=[{a:+a,b:+b},{a:+a2,b:+b2}];a=+a+(+a2);b=+b+(+b2)}
  if(ko&&+a===+b){alert(legs?"Gelijk over de 2 wedstrijden. Bij knock-out moet er een winnaar zijn":"Bij knock-out is geen gelijkspel mogelijk");return}
- if(await storeScore(c,key,+a,+b,{...mt,legs,info:$("#i_"+key).value.trim(),ta:$("#ca_"+key)?$("#ca_"+key).value.trim():mt.ta||"",tb:$("#cb_"+key)?$("#cb_"+key).value.trim():mt.tb||""}))alert("Opgeslagen");
+ if(await storeScore(c,key,+a,+b,{...mt,legs,info:$("#i_"+key).value.trim(),ta:$("#ca_"+key)?$("#ca_"+key).value.trim():mt.ta||"",tb:$("#cb_"+key)?$("#cb_"+key).value.trim():mt.tb||""})){alert("Opgeslagen");const gm=allGames(c).find(x=>x.key===key);if(gm)notifyResult({a:gm.a,b:gm.b,sa:+a,sb:+b,where:c.name+" · "+gm.label})}
 }
 async function wipe(cid,key){
  if(!admin||!canWrite)return;
@@ -1287,6 +1325,7 @@ async function delDoc(col,id){
 // ---- start
 applyGame();render();
 (function(){
+ if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").catch(()=>{})}
  if(!window.firebase){alert("Kon Firebase niet laden, check je internet");return}
  firebase.initializeApp(firebaseConfig);
  db=firebase.firestore();live=true;
