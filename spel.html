@@ -71,6 +71,9 @@ h1,h2,.hand-f{font-family:"Patrick Hand",cursive;font-weight:400;margin:0;line-h
 .ib svg{width:19px;height:19px;stroke:var(--ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .status{text-align:center;font-weight:800;font-size:14px;color:var(--soft);height:22px;margin:6px 0 2px;transition:color .2s}
 .status.mine{color:var(--gold)}
+.tbar{height:6px;border-radius:99px;background:var(--bar2);overflow:hidden;margin:2px 8px 4px;visibility:hidden}
+.tbar.on{visibility:visible}.tbar i{display:block;height:100%;width:100%;background:var(--gold);border-radius:99px;transition:width .25s linear}
+.tbar.low i{background:var(--bad)}
 /* board */
 .stage{flex:1;display:grid;place-items:center;min-height:0}
 .board{width:min(100%,calc((100dvh - 290px) * .8));min-width:240px;background:#27500A;border-radius:16px;padding:7px;border:3px solid #173404;display:flex;flex-direction:column;gap:5px;position:relative}
@@ -97,6 +100,9 @@ h1,h2,.hand-f{font-family:"Patrick Hand",cursive;font-weight:400;margin:0;line-h
 .pc .gem{position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--rf);box-shadow:0 0 0 1.5px #0f1a0a}
 .tk.op .cd{background:repeating-linear-gradient(45deg,#2a5220 0 4px,#1f3d12 4px 8px);display:grid;place-items:center;font:400 17px/1 "Patrick Hand",cursive;color:var(--gold);text-shadow:0 1px 0 #000}
 .tk.op .gem{display:none}.pc.r-e,.pc.r-l{box-shadow:none}
+.tk.atk::after{content:"";position:absolute;left:50%;top:44%;width:74%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:3px solid var(--op);box-shadow:0 0 12px var(--op);animation:atk 1s infinite;pointer-events:none;z-index:5}
+.tk.atk::before{content:"⚔";position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);font-size:18px;z-index:6;filter:drop-shadow(0 1px 2px #000);pointer-events:none}
+@keyframes atk{50%{transform:translate(-50%,-50%) scale(1.15);opacity:.6}}
 .tk.sel .pc{transform:translateY(-16%) scale(1.08)}.tk.sel .cd{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 10px 14px rgba(0,0,0,.55)}
 .tk.die .pc{animation:die .5s forwards}
 @keyframes drop{0%{transform:translateY(-90%) scale(1.3);opacity:0}65%{transform:translateY(6%) scale(1.05,.9);opacity:1}100%{transform:none}}
@@ -312,6 +318,7 @@ h1,h2,.hand-f{font-family:"Patrick Hand",cursive;font-weight:400;margin:0;line-h
     <div class="pl op" id="pOp"><div class="nm" id="nOp"></div><div class="st"><span class="hearts" id="hOp"></span></div></div>
   </div>
   <div class="status" id="status"></div>
+  <div class="tbar" id="tbar" aria-hidden="true"><i id="tbarI"></i></div>
   <div class="pool" id="pool"></div>
   <div class="stage" id="stage">
     <div class="board">
@@ -363,11 +370,11 @@ const CARDS={
  woetroe:{n:'Tuinbaas Woetroe',c:'green',s:6,d:'Pak een 9, 10 of heer',e:'Van mijn gras af! Als Woetroe wint, jaagt hij ook alle andere kaarten van de tegenstander naast hem van het bord'},
  quentin:{n:'Vuurkop Quentin',c:'red',s:2,d:'Pak een harten-kaart van 6 of hoger'}
 };
-const KEYS=Object.keys(CARDS),DECK=4,LIVES=3,WALL=2,DRINK_S=30;
+const KEYS=Object.keys(CARDS),DECK=4,LIVES=3,WALL=2,DRINK_S=30,TURN_S=30;
 /* extra's: w = als de kaart een gevecht wint, f = als de kaart de finish haalt */
 const FX={dktje:{w:'give5'},lillenn:{w:'both',f:'x2'},melvin:{w:'move3'},bigadam:{w:'give3'},desther:{w:'free'},jacko:{w:'gift'},rick:{run2:true},woetroe:{w:'dmg1'},oetap:{f:'atje2'},oetapa:{f:'atje1'}};
 const fx=k=>FX[k]||{};
-const RULES=`<ol class="rl"><li>Kies om de beurt een dichte kaart. Max 4 in je deck. Je tegenstander ziet jouw kaarten nooit.</li><li>Iedereen heeft 3 levens. Wie alle levens kwijt is, verliest en neemt een atje.</li><li>Je deck is een rij van 4. Alleen de eerste 2 kun je inzetten. Zet je er een in, dan schuift je deck door. Gaat een kaart dood of haalt hij de finish, dan sluit hij achteraan aan.</li><li>In je beurt: sleep een kaart naar je startrij, óf sleep een kaart op het bord 1 vakje vooruit of opzij.</li><li>Neem eerst de slokken die op de kaart staan, binnen 30 seconden. Goedgekeurd: kaart op het bord. Afgekeurd: 1 leven eraf, de kaart blijft in je deck en de beurt wisselt.</li><li>Kaart naast of tegenover een kaart van de tegenstander: gevecht! Alleen dan zie je zijn kaart. Trek een echte kaart, de scheids beslist.</li><li>Haal je de finish aan de overkant: tegenstander -1 leven.</li><li>Extra's: Sneaky melvin wint = niemand dood, 3 plekjes verder. Lil lenn wint = allebei dood, finish = -2 levens. Dk'tje en Big Adam winnen = slokken uitdelen. Desther. K wint = volgende kaart gratis. Oetap en Oetapa finish = atjes. Ho Ho Jacko wint = kies een kaart die 10 rondes lang 1 slok minder kost. Windkop Rick mag elke beurt 2 stappen vooruit. Tuinbaas Woetroe wint = jaagt ook de andere kaarten naast hem weg.</li></ol>`;
+const RULES=`<ol class="rl"><li>Kies om de beurt een dichte kaart. Max 4 in je deck. Je tegenstander ziet jouw kaarten nooit.</li><li>Iedereen heeft 3 levens. Wie alle levens kwijt is, verliest en neemt een atje.</li><li>Je deck is een rij van 4. Alleen de eerste 2 kun je inzetten. Zet je er een in, dan schuift je deck door. Gaat een kaart dood of haalt hij de finish, dan sluit hij achteraan aan.</li><li>In je beurt: sleep een kaart naar je startrij, óf sleep een kaart op het bord 1 vakje vooruit of opzij.</li><li>Neem eerst de slokken die op de kaart staan, binnen 30 seconden. Goedgekeurd: kaart op het bord. Afgekeurd: 1 leven eraf, de kaart blijft in je deck en de beurt wisselt.</li><li>Kaart naast of tegenover een kaart van de tegenstander: gevecht! Alleen dan zie je zijn kaart. Trek een echte kaart, de scheids beslist.</li><li>Sta je naast meerdere kaarten van de tegenstander, dan kies je zelf welke je aanvalt.</li><li>Staat jouw kaart in jouw beurt naast een kaart van de tegenstander, dan mag je aanvallen in plaats van bewegen: tik op je kaart en dan op de rode kaart met zwaarden.</li><li>Je hebt 30 seconden per beurt. Is de tijd op, dan gaat de beurt naar de ander.</li><li>Haal je de finish aan de overkant: tegenstander -1 leven.</li><li>Extra's: Sneaky melvin wint = niemand dood, 3 plekjes verder. Lil lenn wint = allebei dood, finish = -2 levens. Dk'tje en Big Adam winnen = slokken uitdelen. Desther. K wint = volgende kaart gratis. Oetap en Oetapa finish = atjes. Ho Ho Jacko wint = kies een kaart die 10 rondes lang 1 slok minder kost. Windkop Rick mag elke beurt 2 stappen vooruit. Tuinbaas Woetroe wint = jaagt ook de andere kaarten naast hem weg.</li></ol>`;
 
 /* ====== 3. HULP ====== */
 const $=id=>document.getElementById(id);
@@ -407,16 +414,18 @@ function A_pick(g,h,u,slot){
  if(g.phase!=='draft'||g.pickTurn!==u)throw 'Niet jouw beurt';if(g.taken[slot])throw 'Al gepakt';if(h.deck.length>=DECK)throw 'Je deck is vol';
  h.deck.push(dec(g.pool)[slot]);g.taken[slot]=u;
  const cnt=x=>Object.values(g.taken).filter(v=>v===x).length,o=other(g,u);
- if(cnt(u)>=DECK&&cnt(o)>=DECK){g.phase='play';g.turn=g.players[1];ev(g,'start');return}
+ if(cnt(u)>=DECK&&cnt(o)>=DECK){g.phase='play';g.turn=g.players[1];g.turnAt=Date.now();ev(g,'start');return}
  g.pickTurn=cnt(o)<DECK?o:u;ev(g,'pick',{by:u});
 }
-function endTurn(g){g.turn=other(g,g.turn);g.turnN=(g.turnN||0)+1}
+function endTurn(g){g.turn=other(g,g.turn);g.turnN=(g.turnN||0)+1;g.turnAt=Date.now()}
+// 30 seconden per beurt: is de tijd op, dan gaat de beurt naar de ander
+function A_timeout(g,n){if(g.phase!=='play'||!free(g)||!g.turnAt||(g.turnN||0)!==n)return;ev(g,'timeout',{by:g.turn});endTurn(g)}
 function queueOf(g,h){const onB=new Set(Object.values(g.board).map(b=>b.t)),gi={};(g.gone||[]).forEach((t,i)=>gi[t]=i);const fresh=[],ret=[],board=[];
  for(const k of h.deck){const ts=Object.keys(h.placed).filter(t=>h.placed[t]===k);if(ts.some(t=>onB.has(t))){board.push(k);continue}const d=ts.filter(t=>t in gi).map(t=>gi[t]);if(d.length)ret.push([Math.max(...d),k]);else fresh.push(k)}
  ret.sort((a,b)=>a[0]-b[0]);return {queue:[...fresh,...ret.map(x=>x[1])],board,pending:g.drink&&h.placed[g.drink.t]||null}}
 const PLAY=2;
 function playable(g,h,k){const q=queueOf(g,h);return q.queue.indexOf(k)>-1&&q.queue.indexOf(k)<PLAY&&q.pending!==k}
-function free(g){return g.phase==='play'&&!g.drink&&!g.battle}
+function free(g){return g.phase==='play'&&!g.drink&&!g.battle&&!g.choose}
 const GIFT_ROUNDS=10;
 const discOf=(h,k,g)=>{const d=(h.disc||{})[k];if(!d)return [];const now=g&&g.turnN||0;return (Array.isArray(d)?d:[]).filter(x=>x>now)};
 const costOf=(h,k,g)=>Math.max(0,CARDS[k].s-discOf(h,k,g).length);
@@ -431,7 +440,18 @@ function A_place(g,h,u,key,cell){
  g.drink={u,cost,at:Date.now(),cell,t};ev(g,'place',{by:u});
 }
 function neighbours(cell){const[r,c]=rc(cell);return[[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([a,b])=>a>=0&&a<8&&b>=0&&b<7).map(([a,b])=>a*7+b)}
-function checkBattle(g,cell){const me=g.board[cell];if(!me)return false;for(const n of neighbours(cell)){const o=g.board[n];if(o&&o.o!==me.o){g.battle={id:rid(),a:{cell,o:me.o,t:me.t},d:{cell:n,o:o.o,t:o.t},show:{}};ev(g,'battle');return true}}return false}
+function enemiesNear(g,cell){const me=g.board[cell];if(!me)return[];return neighbours(cell).filter(n=>g.board[n]&&g.board[n].o!==me.o)}
+function startBattle(g,from,to){const a=g.board[from],d=g.board[to];g.choose=null;g.battle={id:rid(),a:{cell:from,o:a.o,t:a.t},d:{cell:to,o:d.o,t:d.t},show:{}};ev(g,'battle')}
+function checkBattle(g,cell){const E=enemiesNear(g,cell);if(!E.length)return false;
+ if(E.length===1){startBattle(g,cell,E[0]);return true}
+ g.choose={u:g.board[cell].o,cell,opts:E};ev(g,'choose',{by:g.board[cell].o});return true}
+// aanvallen: kies bij meerdere tegenstanders wie je aanvalt, of val in je beurt aan in plaats van te bewegen
+function A_attack(g,u,from,to){
+ if(g.phase!=='play')throw 'Het spel loopt niet';
+ if(g.choose){if(g.choose.u!==u)throw 'Niet jouw keuze';if(g.choose.cell!==from||!g.choose.opts.includes(to))throw 'Kies een kaart die naast je staat';startBattle(g,from,to);return}
+ if(!free(g)||g.turn!==u)throw 'Niet jouw beurt';
+ const a=g.board[from],d=g.board[to];if(!a||a.o!==u)throw 'Niet jouw kaart';if(!d||d.o===u||!neighbours(from).includes(to))throw 'Die kaart staat niet naast je';
+ ev(g,'attack',{by:u});startBattle(g,from,to)}
 function moves(g,u,cell,key){const[r,c]=rc(cell),d=dir(g,u),out=[],off=x=>x<0||x>7;
  if(off(r+d))out.push('fin');else if(!g.board[(r+d)*7+c]){out.push((r+d)*7+c);if(fx(key).run2){if(off(r+2*d))out.push('fin');else if(!g.board[(r+2*d)*7+c])out.push((r+2*d)*7+c)}}
  for(const cc of[c-1,c+1])if(cc>=0&&cc<7&&!g.board[r*7+cc])out.push(r*7+cc);return out}
@@ -572,10 +592,11 @@ function render(){
  $('pool').style.display=draft?'grid':'none';$('stage').style.display=draft?'none':'grid';$('actBar').style.display=draft?'none':'flex';
  let st='';
  if(draft)st=g.pickTurn===me?'Kies een dichte kaart':`${g.names[op]} kiest een kaart…`;
- else if(g.phase==='play'){if(g.battle)st='Gevecht!';else if(g.drink)st=`${g.names[g.drink.u]} drinkt…`;else if(g.turn===me)st=S.placing?'Tik op een gouden vakje':S.sel!=null?'Kies waar je kaart heen gaat':(g.free&&g.free[me]?'Jouw beurt: je volgende kaart is gratis!':'Jouw beurt: sleep een kaart of zet een stap');else st=`Beurt van ${g.names[op]}`}
+ else if(g.phase==='play'&&g.choose&&!g.battle)st=g.choose.u===me&&!REF()?'Je staat naast meerdere kaarten: tik op de kaart die je wilt aanvallen':`${g.names[g.choose.u]} kiest wie hij aanvalt…`;
+ else if(g.phase==='play'){if(g.battle)st='Gevecht!';else if(g.drink)st=`${g.names[g.drink.u]} drinkt…`;else if(g.turn===me)st=S.placing?'Tik op een gouden vakje':S.sel!=null?(enemiesNear(g,S.sel).length?'Zet een stap, of tik op een rode kaart om aan te vallen':'Kies waar je kaart heen gaat'):(g.free&&g.free[me]?'Jouw beurt: je volgende kaart is gratis!':'Jouw beurt: sleep een kaart of zet een stap');else st=`Beurt van ${g.names[op]}`}
  else if(g.phase==='over')st=g.winner===me?'Gewonnen!':'Verloren';
- if(REF()){if(draft)st=`${g.names[g.pickTurn]} kiest een kaart…`;else if(g.phase==='play')st=g.battle?'Gevecht! Jij beslist wie wint':g.drink?`${g.names[g.drink.u]} drinkt, jij keurt het`:`Beurt van ${g.names[g.turn]}`;else if(g.phase==='over')st=`${g.names[g.winner]} wint!`}
- $('status').textContent=st;$('status').classList.toggle('mine',active===me&&g.phase!=='over');
+ if(REF()){if(draft)st=`${g.names[g.pickTurn]} kiest een kaart…`;else if(g.phase==='play')st=g.choose&&!g.battle?`${g.names[g.choose.u]} kiest wie hij aanvalt…`:g.battle?'Gevecht! Jij beslist wie wint':g.drink?`${g.names[g.drink.u]} drinkt, jij keurt het`:`Beurt van ${g.names[g.turn]}`;else if(g.phase==='over')st=`${g.names[g.winner]} wint!`}
+ $('status').textContent=st;$('status').dataset.base=st;$('status').classList.toggle('mine',active===me&&g.phase!=='over');
  if(draft)renderPool();else renderBoard();
  renderTray();renderSheet();
  $('bPass').disabled=REF()||!(free(g)&&g.turn===me);$('actBar').style.display=draft||REF()?'none':'flex';$('bPass').style.opacity=$('bPass').disabled?.4:1;
@@ -593,12 +614,14 @@ function renderBoard(){
  cells.forEach(el=>{const v=+el.dataset.v,cell=fromVis(v),[r]=rc(cell);if(!el.firstChild)el.innerHTML=gras[v];el.classList.toggle('hl',targets.includes(cell));
   const vr=Math.floor(v/7);el.classList.toggle('mt',vr===3);el.classList.toggle('mb',vr===4)});
  $('finTop').classList.toggle('hl',finOK);
+ const atk=REF()?[]:g.choose&&g.choose.u===me&&!g.battle?g.choose.opts:myTurn&&S.sel!=null&&g.board[S.sel]?.o===me?enemiesNear(g,S.sel):[];
+ S.atkFrom=g.choose&&g.choose.u===me?g.choose.cell:S.sel;S.atk=atk;
  const layer=$('toks'),seen=new Set();
  for(const [cell,tk] of Object.entries(g.board)){
   seen.add(tk.t);let el=layer.querySelector(`[data-t="${tk.t}"]`);const mine=tk.o===me;
   let fresh=false;if(!el){el=document.createElement('div');el.dataset.t=tk.t;el.className='tk';el.innerHTML='<div class="pc"><span class="base"></span><div class="cd"></div><b class="gem"></b></div>';layer.appendChild(el);fresh=true}
   const prev=el.dataset.cell;if(!fresh&&prev!==undefined&&prev!==String(cell)&&S.fxReady){const [px,py]=center(el);burst(px,py+8,GRASS,8,30,'leaf')}
-  el.classList.toggle('me',mine);el.classList.toggle('op',!mine);el.classList.toggle('sel',+cell===S.sel);el.dataset.cell=cell;
+  el.classList.toggle('me',mine);el.classList.toggle('op',!mine);el.classList.toggle('sel',+cell===S.sel||!!(g.choose&&g.choose.u===me&&+cell===g.choose.cell));el.classList.toggle('atk',(S.atk||[]).includes(+cell));el.dataset.cell=cell;
   const k=mine?h.placed[tk.t]:null,cd=el.querySelector('.cd');cd.style.backgroundImage=k?`url(${src(k)})`:'';cd.textContent=k?'':'Z';el.querySelector('.pc').className='pc'+(k?' r-'+tier(k):'');
   const v=toVis(+cell);el.style.left=(v%7)*(100/7)+'%';el.style.top=Math.floor(v/7)*12.5+'%';el.style.zIndex=Math.floor(v/7)+1;
   if(fresh&&S.fxReady){const e2=el,col=mine?'#4aa8ff':'#ff6161';setTimeout(()=>{const [x,y]=center(e2);shock(x,y+6,col);burst(x,y+6,GRASS,18,60,'leaf');burst(x,y,[col,'#fff'],10,45);thud()},330)}
@@ -630,6 +653,20 @@ function renderSheet(){
  draw();drinkTick=setInterval(draw,500);$('sheet').classList.add('on');
 }
 
+/* ====== 7b. BEURT-TIMER ====== */
+let toFired=null;
+setInterval(()=>{const g=S.g,bar=$('tbar');if(!bar)return;
+ const on=!!g&&g.phase==='play'&&free(g)&&!!g.turnAt&&$('sGame').classList.contains('on');
+ bar.classList.toggle('on',on);if(!on)return;
+ const left=TURN_S-(Date.now()-g.turnAt)/1000,shown=Math.max(0,Math.ceil(left));
+ $('tbarI').style.width=Math.max(0,Math.min(100,left/TURN_S*100))+'%';bar.classList.toggle('low',left<=10);
+ const st=$('status');if(st&&!/ · \d+s$/.test(st.textContent))st.dataset.base=st.textContent;if(st)st.textContent=(st.dataset.base||st.textContent)+' · '+shown+'s';
+ if(left>0)return;
+ const holdOn=$('hold').classList.contains('on'),mine=mode==='local'?!holdOn:(g.turn===S.me&&!REF());
+ const key=g.code+':'+(g.turnN||0);if(toFired===key)return;
+ if(mine||left<=-5){toFired=key;const n=g.turnN||0;act(g2=>A_timeout(g2,n))}
+},250);
+
 /* ====== 8. CUTSCENES ====== */
 let cutQ=Promise.resolve();
 function cut(html,ms,cls='',tap=false){cutQ=cutQ.then(async()=>{$('cutIn').innerHTML=html+(tap?'<button class="btn gold tapgo">Verder</button>':'');$('cut').className='cut on '+cls;await sleep(ms);
@@ -660,12 +697,15 @@ function onState(){
  if(e.type==='drinkok')toast('Goedgekeurd! Kaart staat op het bord');
  if(e.type==='battle')battleCut();
  if(e.type==='battleres'){$('ov').classList.remove('on');$('ov').dataset.battle='';resultCut(e)}
+ if(e.type==='choose'){if(e.by===me&&!REF())cut(`<div class="ttl" style="font-size:52px;text-align:center">Kies je gevecht</div><div class="sub">Je staat naast meerdere kaarten. Tik op de kaart die je wilt aanvallen.</div>`,1600);else toast(`${g.names[e.by]} kiest wie hij aanvalt`)}
+ if(e.type==='attack'&&e.by!==me)toast(`${g.names[e.by]} valt aan!`);
+ if(e.type==='timeout'){S.sel=null;S.placing=null;toast(e.by===me&&!REF()&&mode!=='local'?'Tijd is op! De beurt gaat naar '+g.names[other(g,me)]:`Tijd is op voor ${g.names[e.by]}!`)}
  if(e.type==='freeplace')toast(`${g.names[e.by]} zet gratis een kaart neer!`);
  if(g.phase==='over'){$('sheet').classList.remove('on');const won=g.winner===me;const W=g.winner,Lo=other(g,W),wl=g.lives[W];cutQ.then(()=>{hold(`${confetti()}<svg class="trophy" viewBox="0 0 64 64"><path d="M18 8h28v12c0 9-6 16-14 16S18 29 18 20z" fill="#f5b324"/><path d="M18 12H8c0 9 4 14 11 15M46 12h10c0 9-4 14-11 15" fill="none" stroke="#f5b324" stroke-width="4"/><path d="M27 36h10l2 10H25z" fill="#d99611"/><rect x="18" y="46" width="28" height="8" rx="2" fill="#7a4d06"/><path d="M24 12h6v14c-4-2-6-6-6-14z" fill="#fff" opacity=".35"/></svg><div class="ttl" style="margin-top:10px;${mode==='local'||REF()||won?'':'color:var(--op)'}">${mode==='local'||REF()?esc(g.names[W])+' wint!':won?'Gewonnen!':'Verloren'}</div><div class="sub">${nm(W)} wint met nog ${wl} ${wl===1?'leven':'levens'} over. ${nm(Lo)} heeft geen levens meer en neemt een atje!</div><div style="font-size:30px;color:var(--bad);margin-top:8px;animation:fade .4s .6s both">${hearts(wl)}</div><button class="btn gold" style="margin-top:20px;width:220px" id="bAgain">${mode==='local'?'Nog een potje':'Naar home'}</button>`);$('bAgain').onclick=()=>{unhold();mode==='local'?startLocal():goHome()}});return}
  maybeTurnBanner(false);
 }
 function maybeGift(){const g=S.g;if(REF())return;if(!g||g.phase!=='play'||g.battle||!g.gift||!g.gift[S.me]||S.giftOpen)return;S.giftOpen=true;cutQ.then(()=>{if(!S.g.gift||!S.g.gift[S.me]){S.giftOpen=false;return}openOv(`<div class="panel"><h2>Cadeautje van Jacko!</h2><p class="small" style="text-align:center;margin:6px 0 12px">Kies een kaart uit je deck. Die kost 10 rondes lang 1 slok minder.</p><div class="tray" style="padding:0">${S.h.deck.map(k=>`<button class="mc" data-gift="${k}" aria-label="${esc(CARDS[k].n)}">${cardHTML(k,'mini','',costOf(S.h,k,S.g))}</button>`).join('')}</div></div>`,true)})}
-function maybeTurnBanner(first){const g=S.g;if(g.phase!=='play'||g.battle||g.drink)return;const key=g.turn+':'+g.ev.n;if(S.seenTurn===key)return;const was=S.seenTurn;S.seenTurn=key;if(first&&mode!=='local')return;if(was&&was.split(':')[0]===g.turn&&mode!=='local')return;
+function maybeTurnBanner(first){const g=S.g;if(g.phase!=='play'||g.battle||g.drink||g.choose)return;const key=g.turn+':'+g.ev.n;if(S.seenTurn===key)return;const was=S.seenTurn;S.seenTurn=key;if(first&&mode!=='local')return;if(was&&was.split(':')[0]===g.turn&&mode!=='local')return;
  if(g.turn===S.me&&!REF())cut(`<div class="ttl" style="font-size:58px">Jouw beurt</div><div class="sub">Zet een kaart neer of zet een stap.</div>`,1300)}
 function battleCut(){
  const g=S.g,b=g.battle;if(!b)return;const me=S.me,nm=u=>esc(g.names[u]);
@@ -694,7 +734,7 @@ function resultCut(e){
 function passPhone(w){
  const g=S.g;$('sheet').classList.remove('on');$('ov').classList.remove('on');
  hold(`<div class="back" style="width:90px;margin-bottom:18px"></div><div class="sub" style="animation:none;color:var(--soft)">Niet kijken!</div><div class="ttl" style="font-size:48px;text-align:center">Geef de telefoon aan ${esc(g.names[w])}</div><button class="btn gold" style="margin-top:22px;width:220px" id="bReady">Ik ben ${esc(g.names[w])}</button>`,'solid');
- $('bReady').onclick=()=>{S.viewer=w;S.me=w;S.h=S.localHands[w];S.sel=null;S.placing=null;S.seenTurn=null;unhold();S.prevEv=S.g.ev.type==='start'?S.g.ev.n-1:S.g.ev.n;onState()};
+ $('bReady').onclick=()=>{if(S.g&&S.g.phase==='play'&&free(S.g))S.g.turnAt=Date.now();S.viewer=w;S.me=w;S.h=S.localHands[w];S.sel=null;S.placing=null;S.seenTurn=null;unhold();S.prevEv=S.g.ev.type==='start'?S.g.ev.n-1:S.g.ev.n;onState()};
 }
 
 /* ====== 9. KLIKKEN ====== */
@@ -721,7 +761,10 @@ $('tray').addEventListener('click',e=>{if(noClick)return;const b=e.target.closes
 });
 $('grid').addEventListener('click',e=>{if(noClick)return;const g=S.g;if(!g||g.phase!=='play')return;
  const tk=e.target.closest('.tk');
- if(tk){const cell=+tk.dataset.cell;if(REF())return toast('Kaarten van de spelers zijn geheim');if(g.board[cell]?.o!==S.me)return toast('Kaart van de tegenstander. Geheim!');if(!(free(g)&&g.turn===S.me))return;S.placing=null;S.sel=S.sel===cell?null:cell;render();return}
+ if(tk){const cell=+tk.dataset.cell;if(REF())return toast('Kaarten van de spelers zijn geheim');
+  if(tk.classList.contains('atk')&&S.atkFrom!=null){const f=S.atkFrom;S.sel=null;S.placing=null;act((g,h,u)=>A_attack(g,u,f,cell));return}
+  if(g.choose&&g.choose.u===S.me)return toast('Tik op een kaart met zwaarden om aan te vallen');
+  if(g.board[cell]?.o!==S.me)return toast(S.sel!=null?'Die kaart staat niet naast je kaart':'Kaart van de tegenstander. Geheim! Tik eerst je eigen kaart om aan te vallen');if(!(free(g)&&g.turn===S.me))return;S.placing=null;S.sel=S.sel===cell?null:cell;render();return}
  const c=e.target.closest('.c');if(!c||!c.classList.contains('hl'))return;const cell=fromVis(+c.dataset.v);
  if(S.placing){const k=S.placing;S.placing=null;act((g,h,u)=>A_place(g,h,u,k,cell))}
  else if(S.sel!=null){const f=S.sel;S.sel=null;act((g,h,u)=>A_move(g,h,u,f,cell))}
@@ -752,7 +795,7 @@ let drag=null,noClick=false;
 const myFree=()=>!REF()&&S.g&&S.g.phase==='play'&&free(S.g)&&S.g.turn===S.me;
 $('tray').addEventListener('pointerdown',e=>{const m=e.target.closest('.mc[data-k]');if(!m||!myFree()||!playable(S.g,S.h,m.dataset.k))return;drag={type:'card',k:m.dataset.k,x:e.clientX,y:e.clientY,on:false,src:m}});
 $('grid').addEventListener('pointerdown',e=>{const t=e.target.closest('.tk.me');if(!t||!myFree())return;drag={type:'tok',cell:+t.dataset.cell,x:e.clientX,y:e.clientY,on:false,src:t}});
-function overTarget(x,y){const el=document.elementFromPoint(x,y);if(!el)return null;const c=el.closest('.c.hl');if(c)return c;const f=el.closest('#finTop.hl');return f||null}
+function overTarget(x,y){const el=document.elementFromPoint(x,y);if(!el)return null;const a=el.closest('.tk.atk');if(a)return a;const c=el.closest('.c.hl');if(c)return c;const f=el.closest('#finTop.hl');return f||null}
 document.addEventListener('pointermove',e=>{if(!drag)return;
  if(!drag.on){if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<8)return;drag.on=true;const gh=$('ghost');
   if(drag.type==='card'){S.placing=drag.k;S.sel=null;gh.className='';gh.innerHTML=cardHTML(drag.k,'mini')}
@@ -764,6 +807,7 @@ document.addEventListener('pointermove',e=>{if(!drag)return;
 document.addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;if(!d.on)return;noClick=true;setTimeout(()=>noClick=false,80);
  $('ghost').style.display='none';document.querySelectorAll('.c.over').forEach(c=>c.classList.remove('over'));
  const t=overTarget(e.clientX,e.clientY);
+ if(t&&t.classList.contains('tk')&&d.type==='tok'){S.sel=null;act((g,h,u)=>A_attack(g,u,d.cell,+t.dataset.cell));return}
  if(t&&t.id==='finTop'&&d.type==='tok'){S.sel=null;act((g,h,u)=>A_move(g,h,u,d.cell,'fin'));return}
  if(t&&t.classList.contains('c')){const cell=fromVis(+t.dataset.v);S.placing=null;S.sel=null;
   if(d.type==='card')act((g,h,u)=>A_place(g,h,u,d.k,cell));else act((g,h,u)=>A_move(g,h,u,d.cell,cell));return}
