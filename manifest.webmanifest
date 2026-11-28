@@ -1,0 +1,17 @@
+{
+  "name": "Zonderplan",
+  "short_name": "Zonderplan",
+  "description": "Uitslagen, competities, teams en ranks voor Voetvolley, Zonderbord, FIFA en Clash Royale.",
+  "lang": "nl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06111c",
+  "theme_color": "#06111c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
