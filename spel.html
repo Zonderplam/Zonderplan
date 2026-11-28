@@ -295,7 +295,7 @@ h1,h2,.hand-f{font-family:"Patrick Hand",cursive;font-weight:400;margin:0;line-h
 <!-- waiting -->
 <section class="scr" id="sWait">
   <div class="hero">
-    <div class="small">Stuur deze code naar je tegenstander en de scheids</div>
+    <div class="small">Stuur deze code naar je tegenstander (en de scheids)</div>
     <div class="code" id="wCode"></div>
     <div class="dots"><span></span><span></span><span></span></div>
     <p class="small" id="wMsg">Wachten op een tegenstander…</p>
@@ -396,9 +396,12 @@ const bricks=n=>Array.from({length:WALL},(_,i)=>`<i class="${i<n?'':'x'}"></i>`)
 const hearts=n=>Array.from({length:LIVES},(_,i)=>`<i class="${i<n?'':'x'}">&#9829;</i>`).join('');
 
 /* ====== 4. SPELREGELS (werken op game g en jouw hand h) ====== */
-function newGame(code,u,name){return {code,players:[u],names:{[u]:name},phase:'wait',pool:enc(shuffle(KEYS)),taken:{},pickTurn:u,turn:u,lives:{[u]:LIVES},wall:{[u]:WALL},board:{},gone:[],drink:null,battle:null,ev:{n:0,type:'new'},winner:null,created:Date.now()}}
-function joinRef(g,u,name){if(g.ref===u)return;if(g.players.includes(u))throw 'Je speelt zelf mee in dit potje';if(g.ref)throw 'Dit potje heeft al een scheids';g.ref=u;g.names[u]=name;ev(g,'refjoin',{by:u})}
-function joinGame(g,u,name){if(g.players.includes(u))return;if(g.ref===u)throw 'Je bent al de scheids van dit potje';if(g.players.length>=2)throw 'Dit potje is vol';g.players.push(u);g.names[u]=name;g.lives[u]=LIVES;g.wall=g.wall||{};g.wall[u]=WALL;g.phase='draft';g.pickTurn=g.players[0];ev(g,'draft')}
+function newGame(code,u,name,kind){return {code,kind:kind||'',players:[u],names:{[u]:name},phase:'wait',pool:enc(shuffle(KEYS)),taken:{},pickTurn:u,turn:u,lives:{[u]:LIVES},wall:{[u]:WALL},board:{},gone:[],drink:null,battle:null,ev:{n:0,type:'new'},winner:null,created:Date.now()}}
+function joinRef(g,u,name){if(g.ref===u)return;if(g.kind==='vriend')throw 'Dit is een vriendschappelijk potje zonder scheids';if(g.players.includes(u))throw 'Je speelt zelf mee in dit potje';if(g.ref)throw 'Dit potje heeft al een scheids';g.ref=u;g.names[u]=name;
+ if(g.phase==='wait'&&g.players.length===2){g.phase='draft';g.pickTurn=g.players[0];ev(g,'draft');return}ev(g,'refjoin',{by:u})}
+function joinGame(g,u,name){if(g.players.includes(u))return;if(g.ref===u)throw 'Je bent al de scheids van dit potje';if(g.players.length>=2)throw 'Dit potje is vol';g.players.push(u);g.names[u]=name;g.lives[u]=LIVES;g.wall=g.wall||{};g.wall[u]=WALL;
+ if(g.kind==='ref'&&!g.ref){ev(g,'join',{by:u});return}
+ g.phase='draft';g.pickTurn=g.players[0];ev(g,'draft')}
 function ev(g,type,x={}){g.ev={n:(g.ev?.n||0)+1,type,...x}}
 function A_pick(g,h,u,slot){
  if(g.phase!=='draft'||g.pickTurn!==u)throw 'Niet jouw beurt';if(g.taken[slot])throw 'Al gepakt';if(h.deck.length>=DECK)throw 'Je deck is vol';
@@ -486,20 +489,24 @@ async function loadFirebase(){
 }
 async function act(fn){
  try{
-  if(mode==='local'){const u=S.viewer;fn(S.g,S.localHands[u],u);S.h=S.localHands[u];onState();return}
+  if(mode==='local'){const u=S.viewer;fn(S.g,S.localHands[u],u);S.h=S.localHands[u];onState();return true}
   const {F,db}=FB,gref=F.doc(db,'games',S.g.code),href=F.doc(db,'games',S.g.code,'hands',user.uid);
   await F.runTransaction(db,async tx=>{const gs=await tx.get(gref),hs=await tx.get(href);const g=gs.data(),h=hs.exists()?hs.data():{deck:[],placed:{}};fn(g,h,user.uid);tx.set(gref,g);tx.set(href,h)});
- }catch(e){toast(typeof e==='string'?e:'Er ging iets mis, probeer opnieuw');console.warn(e)}
+  return true;
+ }catch(e){toast(typeof e==='string'?e:e&&e.code==='permission-denied'?'Geen toegang: zijn de nieuwe Firestore-regels gepubliceerd?':'Er ging iets mis ('+(e&&(e.code||e.message)||e)+'), probeer opnieuw');console.warn(e);return false}
 }
 function subscribe(code){
  unsub.forEach(f=>f());unsub=[];const {F,db}=FB;
- unsub.push(F.onSnapshot(F.doc(db,'games',code),s=>{if(!s.exists())return;S.g=s.data();if(S.g.ref===user.uid)S.me=S.g.players[0];onState()}));
- unsub.push(F.onSnapshot(F.doc(db,'games',code,'hands',user.uid),s=>{S.h=s.exists()?s.data():{deck:[],placed:{}};render()}));
+ const lost=e=>{console.warn(e);toast(e&&e.code==='permission-denied'?'Geen toegang tot dit potje: check de Firestore-regels':'Verbinding weg, opnieuw verbinden…');clearTimeout(S.reTimer);S.reTimer=setTimeout(()=>{if(S.g&&S.g.code===code&&mode==='online')subscribe(code)},3000)};
+ unsub.push(F.onSnapshot(F.doc(db,'games',code),s=>{if(!s.exists())return;S.g=s.data();if(S.g.ref===user.uid)S.me=S.g.players[0];try{onState()}catch(e){console.warn(e);render()}},lost));
+ unsub.push(F.onSnapshot(F.doc(db,'games',code,'hands',user.uid),s=>{S.h=s.exists()?s.data():{deck:[],placed:{}};render()},lost));
 }
 // ben ik de scheids van dit potje? (alleen online)
 const REF=()=>mode==='online'&&!!S.g&&!!S.g.ref&&!!user&&S.g.ref===user.uid;
 // mag ik slokken goedkeuren en gevechten beslissen? Met scheids: alleen de scheids. Zonder scheids: de spelers.
 const JUDGE=()=>!S.g||!S.g.ref||REF();
+// slokken goedkeuren: met scheids alleen de scheids; vriendschappelijk alleen degene die drinkt (eerlijk zijn!)
+const DRINKJ=()=>{const g=S.g;if(!g||mode==='local')return true;if(g.ref)return REF();if(g.kind==='vriend')return !!g.drink&&g.drink.u===S.me;return true};
 const myName=()=>(localStorage.getItem('zb-name')||user?.displayName||'Speler').split(' ')[0];
 
 /* ====== 6. SCHERMEN ====== */
@@ -507,11 +514,12 @@ $('fan').innerHTML=[-24,-8,8,24].map((r,i)=>`<div class="back" style="transform:
 $('bLocal').onclick=startLocal;
 $('bGoogle').onclick=async()=>{if(!FB)return toast('Online werkt pas als de app op GitHub staat met je Firebase-code');const p=new FB.A.GoogleAuthProvider();try{await FB.A.signInWithPopup(FB.auth,p)}catch(e){try{await FB.A.signInWithRedirect(FB.auth,p)}catch(_){toast('Inloggen mislukt')}}};
 $('bOut').onclick=()=>FB&&FB.A.signOut(FB.auth);
-$('bNew').onclick=async()=>{
+$('bNew').onclick=()=>openOv(`<div class="panel"><h2>Nieuw potje</h2><p class="small" style="text-align:center;margin:6px 0 12px">Wat voor potje wil je spelen?</p><div class="stack"><button class="btn gold" data-new="ref">Met scheids</button><p class="small" style="margin:-4px 2px 4px">De scheids doet mee met dezelfde code en keurt de slokken en gevechten.</p><button class="btn" data-new="vriend">Vriendschappelijk</button><p class="small" style="margin:-4px 2px 4px">Zonder scheids. Je klikt zelf aan of je gedronken hebt. Eerlijk zijn!</p><button class="link" data-a="close">Annuleren</button></div></div>`);
+async function newOnline(kind){
  const {F,db}=FB;let code;for(let i=0;i<5;i++){code=Array.from({length:4},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random()*24)]).join('');if(!(await F.getDoc(F.doc(db,'games',code))).exists())break}
- await F.setDoc(F.doc(db,'games',code),newGame(code,user.uid,myName()));await F.setDoc(F.doc(db,'games',code,'hands',user.uid),{deck:[],placed:{}});
+ await F.setDoc(F.doc(db,'games',code),newGame(code,user.uid,myName(),kind));await F.setDoc(F.doc(db,'games',code,'hands',user.uid),{deck:[],placed:{}});
  openGame(code);
-};
+}
 async function joinAs(role){
  const code=$('iCode').value.trim().toUpperCase();if(code.length!==4)return toast('Vul een code van 4 letters in');
  const {F,db}=FB;const s=await F.getDoc(F.doc(db,'games',code));if(!s.exists())return toast('Potje niet gevonden');
@@ -551,7 +559,8 @@ const fromVis=v=>flipped()?55-v:v;
 function render(){
  const g=S.g;if(!g)return;
  if(g.phase==='wait'){show('sWait');$('wCode').textContent=g.code;
-  $('wMsg').textContent=REF()?'Je bent de scheids. Wachten op de tweede speler…':'Wachten op een tegenstander…';
+  const miss=[];if(g.players.length<2)miss.push('een tegenstander');if(g.kind==='ref'&&!g.ref)miss.push('een scheids');
+  $('wMsg').textContent=(g.kind==='vriend'?'Vriendschappelijk potje. ':g.kind==='ref'?'Potje met scheids. ':'')+(miss.length?'Wachten op '+miss.join(' en ')+'…':'Bijna klaar…');
   $('wWho').innerHTML=g.players.map(u=>`<div>${esc(g.names[u])}<span>speler</span></div>`).join('')+(g.ref?`<div>${esc(g.names[g.ref])}<span>scheids</span></div>`:'');return}
  show('sGame');
  const me=S.me,op=other(g,me),h=S.h;
@@ -616,7 +625,7 @@ function renderSheet(){
  const g=S.g,d=g.drink;clearInterval(drinkTick);
  if(!d||g.phase!=='play'){$('sheet').classList.remove('on');return}
  const draw=()=>{const left=Math.max(0,DRINK_S-Math.floor((Date.now()-d.at)/1000));
-  $('sheetIn').innerHTML=`<div style="text-align:center;font-weight:900;margin-bottom:8px">${esc(g.names[d.u])} moet eerst ${d.cost} ${d.cost===1?'slok':'slokken'} nemen</div><div class="drk">${JUDGE()?'<button class="vb no" data-d="0">Afgekeurd</button>':'<span></span>'}<div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#2c4a1d" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="${left<=10?'#e2524d':'#f5b324'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="${263.9*(1-left/DRINK_S)}"/></svg><b>${left}</b></div>${JUDGE()?'<button class="vb ok" data-d="1">Goed</button>':'<span></span>'}</div><div class="small" style="text-align:center;margin-top:6px">${g.ref?(REF()?'Jij bent de scheids: heeft '+esc(g.names[d.u])+' goed gedronken?':'Scheids '+esc(g.names[g.ref])+' checkt. Goed = kaart op het bord'):'Scheids checkt. Goed = kaart op het bord'}</div>`;
+  $('sheetIn').innerHTML=`<div style="text-align:center;font-weight:900;margin-bottom:8px">${esc(g.names[d.u])} moet eerst ${d.cost} ${d.cost===1?'slok':'slokken'} nemen</div><div class="drk">${DRINKJ()?`<button class="vb no" data-d="0">${S.g.kind==='vriend'?'Lukt niet':'Afgekeurd'}</button>`:'<span></span>'}<div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="none" stroke="#2c4a1d" stroke-width="10"/><circle cx="50" cy="50" r="42" fill="none" stroke="${left<=10?'#e2524d':'#f5b324'}" stroke-width="10" stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="${263.9*(1-left/DRINK_S)}"/></svg><b>${left}</b></div>${DRINKJ()?`<button class="vb ok" data-d="1">${S.g.kind==='vriend'?'Gedronken':'Goed'}</button>`:'<span></span>'}</div><div class="small" style="text-align:center;margin-top:6px">${g.ref?(REF()?'Jij bent de scheids: heeft '+esc(g.names[d.u])+' goed gedronken?':'Scheids '+esc(g.names[g.ref])+' checkt. Goed = kaart op het bord'):g.kind==='vriend'&&mode!=='local'?(d.u===S.me?'Vriendschappelijk: klik zelf op Gedronken als je het echt gedaan hebt. Eerlijk zijn!':esc(g.names[d.u])+' klikt zelf op Gedronken. Eerlijk zijn!'):'Scheids checkt. Goed = kaart op het bord'}</div>`;
   if(left<=0){clearInterval(drinkTick);act((g2)=>A_drink(g2,null,false,d.at))}};
  draw();drinkTick=setInterval(draw,500);$('sheet').classList.add('on');
 }
@@ -641,6 +650,8 @@ function onState(){
  if(!newEv||first&&g.phase==='play')return maybeTurnBanner(first);
  const me=S.me,nm=u=>esc(g.names[u]);
  if(e.type==='refjoin'&&e.by!==user?.uid)toast(`${g.names[e.by]} is de scheids`);
+ if(e.type==='pick'&&g.phase==='draft'&&g.pickTurn===me&&!REF()&&mode!=='local'){toast('Jouw beurt: kies een dichte kaart');try{navigator.vibrate&&navigator.vibrate(120)}catch(x){}}
+ if(e.type==='join'&&g.kind==='ref')toast(`${g.names[e.by]} doet mee. Nog wachten op een scheids…`);
  if(e.type==='draft')cut(`<div class="ttl">Kies je deck</div><div class="sub">Om de beurt een dichte kaart. Max ${DECK}. Niemand weet welke welke is.</div>`,2200);
  if(e.type==='start'&&REF())cut(`<div class="vs"><div class="side l"><div class="back"></div><div class="who" style="color:var(--me)">${nm(me)}</div></div><div class="x">VS</div><div class="side r"><div class="back"></div><div class="who" style="color:var(--op)">${nm(other(g,me))}</div></div></div><div class="ttl" style="margin-top:20px;animation-delay:.7s">Jij bent scheids</div>`,2600);
  else if(e.type==='start'){const deck=S.h.deck;cut(`<div class="sub" style="animation:none">Jouw deck</div><div class="deckrow">${deck.map(k=>`<div class="flip">${faceHTML(k)}</div>`).join('')}</div>`,2600).then(()=>cut(`<div class="vs"><div class="side l"><div class="back"></div><div class="who" style="color:var(--me)">${nm(me)}</div></div><div class="x">VS</div><div class="side r"><div class="back"></div><div class="who" style="color:var(--op)">${nm(other(g,me))}</div></div></div><div class="ttl" style="margin-top:20px;animation-delay:.7s">Vechten!</div>`,2600))}
@@ -669,7 +680,7 @@ function renderBattle(force){
  const meSide=b.a.o===me?'a':'d',opSide=meSide==='a'?'d':'a';
  const flip=ok&&S.flipped!==b.id;if(ok)S.flipped=b.id;
  const line=(k,who)=>k?`<div class="opd">${who}: <b>${esc(CARDS[k].d)}</b>${CARDS[k].e?`<br><span class="small">Extra: ${esc(CARDS[k].e)}</span>`:''}</div>`:'';
- openOv(`<div style="display:flex;flex-direction:column;align-items:center"><div class="vs"><div class="side">${mk?cardHTML(mk,'mid'):'<div class="back"></div>'}<div class="who" style="color:var(--me)">${nm(me)}</div></div><div class="x" style="animation:none">VS</div><div class="side"><div class="${flip?'flip':''}">${ok?cardHTML(ok,'mid'):'<div class="back"></div>'}</div><div class="who" style="color:var(--op)">${nm(op)}</div></div></div>${line(mk,REF()?nm(me):'Jouw opdracht')}${ok?line(ok,REF()?nm(op):'Tegenstander'):'<div class="opd small">Kaart van de tegenstander wordt omgedraaid…</div>'}<div class="small" style="margin-top:12px">${JUDGE()?(REF()?'Jij bent de scheids: wie wint?':'Trek een echte kaart. Scheids: wie wint?'):'Trek een echte kaart. Scheids '+nm(g.ref)+' beslist…'}</div><div class="res" style="${JUDGE()?'':'display:none'}"><button class="btn me" data-b="${meSide}">${nm(me)}</button><button class="btn op" data-b="${opSide}">${nm(op)}</button><button class="btn" data-b="draw">Gelijk</button><button class="btn" data-b="both">Allebei dood</button></div></div>`,true);
+ openOv(`<div style="display:flex;flex-direction:column;align-items:center"><div class="vs"><div class="side">${mk?cardHTML(mk,'mid'):'<div class="back"></div>'}<div class="who" style="color:var(--me)">${nm(me)}</div></div><div class="x" style="animation:none">VS</div><div class="side"><div class="${flip?'flip':''}">${ok?cardHTML(ok,'mid'):'<div class="back"></div>'}</div><div class="who" style="color:var(--op)">${nm(op)}</div></div></div>${line(mk,REF()?nm(me):'Jouw opdracht')}${ok?line(ok,REF()?nm(op):'Tegenstander'):'<div class="opd small">Kaart van de tegenstander wordt omgedraaid…</div>'}<div class="small" style="margin-top:12px">${JUDGE()?(REF()?'Jij bent de scheids: wie wint?':g.kind==='vriend'?'Trek een echte kaart. Vriendschappelijk: klik samen eerlijk aan wie wint':'Trek een echte kaart. Scheids: wie wint?'):'Trek een echte kaart. Scheids '+nm(g.ref)+' beslist…'}</div><div class="res" style="${JUDGE()?'':'display:none'}"><button class="btn me" data-b="${meSide}">${nm(me)}</button><button class="btn op" data-b="${opSide}">${nm(op)}</button><button class="btn" data-b="draw">Gelijk</button><button class="btn" data-b="both">Allebei dood</button></div></div>`,true);
  ov.dataset.battle=b.id;S.bsk=JSON.stringify(b.show);
 }
 function resultCut(e){
@@ -689,16 +700,19 @@ function passPhone(w){
 /* ====== 9. KLIKKEN ====== */
 function openOv(h,lock){$('ovIn').innerHTML=h;$('ov').classList.add('on');$('ov').dataset.lock=lock?'1':'';$('ov').dataset.battle=''}
 $('ov').addEventListener('click',e=>{const t=e.target;
+ const nb=t.closest('[data-new]');if(nb){$('ov').classList.remove('on');newOnline(nb.dataset.new).catch(e=>{console.warn(e);toast(e&&e.code==='permission-denied'?'Geen toegang: zijn de nieuwe Firestore-regels gepubliceerd?':'Potje maken mislukt')});return}
  const gb=t.closest('[data-gift]');if(gb){const k=gb.dataset.gift;$('ov').classList.remove('on');S.giftOpen=false;act((g,h,u)=>A_gift(g,h,u,k));toast(`${CARDS[k].n} kost 10 rondes lang 1 slok minder!`);return}
  if(t.closest('[data-b]')){if(!JUDGE())return;const r=t.closest('[data-b]').dataset.b;$('ov').classList.remove('on');act(g=>A_battle(g,r));return}
  const a=t.closest('[data-a]');if(a){if(a.dataset.a==='close')$('ov').classList.remove('on');if(a.dataset.a==='place'){S.placing=a.dataset.k;S.sel=null;$('ov').classList.remove('on');render()}return}
  if(t===$('ov')&&!$('ov').dataset.lock)$('ov').classList.remove('on');
 });
-$('sheet').addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b||!JUDGE())return;const at=S.g.drink?.at;act(g=>A_drink(g,null,b.dataset.d==='1',at))});
+$('sheet').addEventListener('click',e=>{const b=e.target.closest('[data-d]');if(!b||!DRINKJ())return;const at=S.g.drink?.at;act(g=>A_drink(g,null,b.dataset.d==='1',at))});
 $('pool').addEventListener('click',async e=>{const s=e.target.closest('.slot.can');if(!s||pickBusy||REF())return;pickBusy=true;const slot=+s.dataset.slot;
  const key=dec(S.g.pool)[slot];s.classList.remove('can');s.classList.add('picked');
- await revealPick(key,s);pickBusy=false;
- act((g,h,u)=>A_pick(g,h,u,slot));
+ if(mode==='local'){await revealPick(key,s);pickBusy=false;act((g,h,u)=>A_pick(g,h,u,slot));return}
+ const ok=await act((g,h,u)=>A_pick(g,h,u,slot));
+ if(ok)await revealPick(key,s);else{s.classList.remove('picked');s.classList.add('can')}
+ pickBusy=false;render();
 });
 $('tray').addEventListener('click',e=>{if(noClick)return;const b=e.target.closest('.mc[data-k]');if(!b)return;const k=b.dataset.k,c=CARDS[k],g=S.g;
  const can=g.phase==='play'&&free(g)&&g.turn===S.me&&playable(g,S.h,k);const q=g.phase==='play'?queueOf(g,S.h):null,qi=q?q.queue.indexOf(k):-1;
