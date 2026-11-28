@@ -479,6 +479,17 @@ th{color:var(--mu)}
 .tlr .nm{flex:1;min-width:0;font-weight:700}.tlr .nm span{display:block;font-weight:400;font-size:12px;color:var(--mu)}
 .tlr .tk{font:800 19px var(--fd);color:var(--gold);font-variant-numeric:tabular-nums}
 .tlr.me{background:color-mix(in srgb,var(--gold) 10%,transparent)}
+/* Zonderbord-spel banner */
+.playz{display:flex;align-items:center;gap:14px;padding:14px 16px;margin:14px 0 16px;border-radius:18px;text-decoration:none;color:#f1f6ea;background:radial-gradient(circle at 15% 50%,#3d7a14,#27500A 45%,#14260d);border:1px solid #3f6f22;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.playz:hover{border-color:#f5b324}
+.fanz{position:relative;width:64px;height:56px;flex:none}
+.fanz i{position:absolute;left:18px;bottom:0;width:30px;height:42px;border-radius:5px;border:2px solid #f1efe8;background:repeating-linear-gradient(45deg,#24461a 0 4px,#1f3d12 4px 8px);transform-origin:50% 120%;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.fanz i:nth-child(1){transform:rotate(-18deg)}.fanz i:nth-child(3){transform:rotate(18deg)}
+.fanz i:nth-child(2)::after{content:"Z";position:absolute;inset:0;display:grid;place-items:center;font:italic 800 18px var(--fd);color:#f5b324}
+.pzt{flex:1;min-width:0}.pzt b{display:block;font:italic 800 21px/1.1 var(--fd)}.pzt span{display:block;font-size:13px;color:#c9dbb6;margin-top:3px}
+.pzgo{flex:none;display:flex;align-items:center;gap:2px;background:#f5b324;color:#2a1800;font-weight:800;border-radius:999px;padding:8px 10px 8px 14px;font-size:14px}
+.pzgo svg{width:16px;height:16px}
+@media (max-width:420px){.pzgo{display:none}}
 #toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:11px 18px;border-radius:99px;font-size:15px;font-weight:600;display:none;z-index:60;max-width:90%;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 @media (max-width:420px){.ch h2{font-size:22px}.slide{padding-inline:8px}.mid{font-size:28px;min-width:54px}.t{gap:7px;font-size:15px}.sc{min-width:58px;font-size:19px}}
@@ -1057,12 +1068,13 @@ function chrome(){
  const inv=myInvites().length;
  $("#drawer").innerHTML=`<div class="dh"><button class="logo" onclick="go('home')" style="background:none;border:0;padding:0;cursor:pointer" aria-label="Zonderplan, naar Home"><span class="lw">${LOGO}<b>Zonder<em>plan</em></b></span><svg class="sw" viewBox="0 0 150 10" aria-hidden="true"><path d="M2 8 Q75 -2 148 6" stroke="#5ee82a" stroke-width="3" fill="none" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #5ee82a)"/></svg></button><button class="ib" onclick="closeDrawer()" aria-label="Menu sluiten">${IC.x}</button></div>
  <div class="dl">Menu</div>${nav.map(([k,l,ic])=>`<button class="di ${view===k||(k==="teams"&&view==="team")||(k==="players"&&view==="person")?"on":""}" onclick="go('${k}')">${ic}${l}</button>`).join("")}
+ <a class="di" href="spel.html" style="text-decoration:none">${IC.pad}Zonderbord spelen</a>
  <div class="dl">Gamemodes</div>${Object.keys(GM).map(k=>`<button class="di g ${game===k?"on":""}" style="--gcol:${GM[k].c}" onclick="setGame('${k}')"><span class="gdot" style="background:${GM[k].c};color:${GM[k].c}"></span>${GM[k].n}${game===k?IC.check:""}</button>`).join("")}
  <div class="dl">Account</div><button class="di ${view==="me"?"on":""}" onclick="go('me')">${IC.user}Mijn profiel${inv?`<span class="cnt" aria-label="${inv} uitnodiging${inv===1?"":"en"}">${inv}</span>`:""}</button>
  ${admin&&canWrite?`<button class="di ${view==="add"?"on":""}" onclick="go('add')">${IC.plus}Beheer</button><button class="di" onclick="logout()">${IC.unlock}Uitloggen</button>`:`<button class="di ${view==="login"?"on":""}" onclick="go('login')">${IC.lock}Beheer</button>`}
  ${window.firebase&&!isStandalone()?`<button class="di ${view==="install"?"on":""}" onclick="installApp()">${IC.down}App installeren</button>`:""}
  ${live?"":`<p class="note">Nog niet verbonden met de database</p>`}
- <p class="note" style="opacity:.7">Versie 20 nov · Toto 2.0</p>
+ <p class="note" style="opacity:.7">Versie 28 nov · met Zonderbord-spel</p>
  <svg class="dpad" viewBox="0 0 96 66" aria-hidden="true"><path d="M24 8h48c12 0 20 10 22 24l2 14c1 10-9 16-17 9l-10-9H27l-10 9c-8 7-18 1-17-9l2-14C4 18 12 8 24 8z" fill="none" stroke="currentColor" stroke-width="4"/><path d="M28 24v16M20 32h16" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="66" cy="27" r="3.5" fill="currentColor"/><circle cx="74" cy="35" r="3.5" fill="currentColor"/></svg>`;
 }
 function render(){
@@ -1100,6 +1112,7 @@ function homeHtml(){
  const up=upcoming(),res=allRes().sort((a,b)=>b.t-a.t),last=res[0],nx=up[0],fn=firstName(),N=newsItems();window._up=up;
  let h=`<section class="hero"><h2>Welkom${fn?`, <em>${esc(fn)}!</em>`:"!"}</h2><p>Kies een gamemode, bekijk je programma of beheer je team.</p><div class="bar2"></div></section>`;
  h+=`<div class="shead"><h3>${IC.pad}Gamemodes</h3></div><div class="gmodes">${Object.keys(GM).map(k=>`<button class="gm ${game===k?"on":""}" style="--gc:${GM[k].c}" onclick="setGame('${k}')" aria-pressed="${game===k}">${game===k?`<span class="now">Gekozen</span>`:""}<span class="art" aria-hidden="true">${GART[k]}</span><span class="gi" aria-hidden="true">${GICO[k]}</span><b>${GM[k].n}</b></button>`).join("")}</div>`;
+ h+=`<a class="playz" href="spel.html"><span class="fanz" aria-hidden="true"><i></i><i></i><i></i></span><span class="pzt"><b>Zonderbord spelen</b><span>Kies blind je kaarten. Versla je vrienden. Online of op 1 telefoon.</span></span><span class="pzgo">Spelen ${IC.chev}</span></a>`;
  h+=`<div class="duo" style="--gc:${GM[game].c}">`;
  h+=`<button class="nx" onclick="${nx?`openComp('${nx.c.id}')`:`go('program')`}"><div class="nh">${IC.cal}Volgende wedstrijd<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${nx?`<b>${esc(GM[game].n)}</b><div class="who">${esc(nx.g.a)} – ${esc(nx.g.b)}</div><div class="meta">${IC.trophy.replace('width="22" height="22"','width="16" height="16"')}${esc(nx.c.name)} · ${esc(nx.g.label)}</div>`:`<b>Niets gepland</b><div class="who">Zodra er een competitie loopt, zie je hier de eerstvolgende wedstrijd.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button>`;
  h+=`<button class="nx" onclick="go('results')"><div class="nh">${IC.trophy}Laatste uitslag<span class="ch2">${IC.chev}</span></div><div class="nb"><span class="ico">${GICO[game]}</span><div>${last?`<b>${esc(GM[game].n)}</b><div class="who">${last.sa>last.sb?`<strong>${esc(last.a)}</strong>`:esc(last.a)} ${last.sa} – ${last.sb} ${last.sb>last.sa?`<strong>${esc(last.b)}</strong>`:esc(last.b)}</div><div class="meta">${esc(last.kind==="c"?last.c.name+" · "+last.label:"Vriendschappelijk")}${ago(last.t)?" · "+esc(ago(last.t)):""}</div>`:`<b>Nog geen uitslagen</b><div class="who">De eerste uitslag verschijnt hier.</div>`}</div></div><span class="ghost" aria-hidden="true">${GART[game]}</span><span class="bar3"></span></button></div>`;
